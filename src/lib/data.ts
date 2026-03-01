@@ -134,6 +134,20 @@ export async function listCustomers(search = "") {
   return (data ?? []) as Customer[];
 }
 
+export async function listCustomerBalances() {
+  guardSupabase();
+  const { data, error } = await supabase.from("invoices").select("customer_id, total_amount, paid_amount");
+  if (error) throw error;
+
+  const balances: Record<string, number> = {};
+  (data ?? []).forEach((invoice: any) => {
+    const customerId = invoice.customer_id as string;
+    const unpaid = Math.max(Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0), 0);
+    balances[customerId] = (balances[customerId] || 0) + unpaid;
+  });
+  return balances;
+}
+
 export async function createCustomer(name: string, phone?: string) {
   guardSupabase();
   const { data, error } = await supabase
