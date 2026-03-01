@@ -7,32 +7,13 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   CircleUserRound,
-  FileText,
-  History,
-  Home,
-  LogOut,
+  Fingerprint,
+  KeyRound,
   Menu,
-  Package,
-  Radio,
-  Settings,
-  Shield,
-  Users,
-  Wallet,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { cn } from "@/lib/utils";
-
-const menuItems = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/live", label: "Live", icon: Radio },
-  { href: "/invoices", label: "Invoices", icon: FileText },
-  { href: "/suppliers", label: "Suppliers", icon: Shield },
-  { href: "/inventory", label: "Inventory", icon: Package },
-  { href: "/customers", label: "Customers", icon: Users },
-  { href: "/my-banks", label: "My Banks", icon: Wallet },
-  { href: "/history", label: "History", icon: History },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 const pageTitleMap: Array<{ match: (path: string) => boolean; title: string }> = [
   { match: (path) => path.startsWith("/live"), title: "Live Encoding" },
@@ -56,12 +37,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     role: "OWNER",
     photo: "https://i.pravatar.cc/96?img=12",
   });
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
   useEffect(() => {
     const role = window.localStorage.getItem("ls-user-role") || "OWNER";
     const name = window.localStorage.getItem("ls-user-name") || "Gary Sales";
     const photo = window.localStorage.getItem("ls-user-photo") || "https://i.pravatar.cc/96?img=12";
     setProfile({ role, name, photo });
+
+    const biometrics = window.localStorage.getItem("ls-enable-biometrics") === "true";
+    setBiometricEnabled(biometrics);
+
+    const theme = window.localStorage.getItem("ls-theme");
+    const dark = theme === "dark";
+    setDarkModeEnabled(dark);
   }, []);
 
   useEffect(() => {
@@ -69,6 +59,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const title = useMemo(() => pageTitleMap.find((item) => item.match(pathname))?.title || "Dashboard", [pathname]);
+
+  function toggleBiometrics() {
+    const next = !biometricEnabled;
+    setBiometricEnabled(next);
+    window.localStorage.setItem("ls-enable-biometrics", String(next));
+  }
+
+  function toggleDarkMode() {
+    const next = !darkModeEnabled;
+    setDarkModeEnabled(next);
+    const theme = next ? "dark" : "light";
+    window.localStorage.setItem("ls-theme", theme);
+    document.documentElement.dataset.theme = theme;
+  }
+
+  function onChangePassword() {
+    window.alert("Password change flow will be connected to authentication provider.");
+  }
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
@@ -91,29 +99,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav className="space-y-1.5">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                  active ? "bg-white/18 text-white" : "text-white/78 hover:bg-white/10 hover:text-white",
-                )}
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <nav className="space-y-2">
+          <Link href="/settings" className="flex items-center gap-3 rounded-xl bg-white/15 px-3 py-2.5 text-sm font-medium text-white">
+            <CircleUserRound size={18} /> My Profile
+          </Link>
 
-        <button className="absolute bottom-4 left-4 inline-flex items-center gap-2 rounded-xl bg-white/12 px-3 py-2 text-sm font-medium text-white/90">
-          <LogOut size={16} /> Sign Out
-        </button>
+          <button
+            className="flex w-full items-center justify-between rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90"
+            onClick={toggleBiometrics}
+          >
+            <span className="inline-flex items-center gap-3">
+              <Fingerprint size={18} /> Enable Biometrics
+            </span>
+            <span className={`h-5 w-9 rounded-full p-0.5 transition ${biometricEnabled ? "bg-emerald-300" : "bg-white/30"}`}>
+              <span className={`block h-4 w-4 rounded-full bg-white transition ${biometricEnabled ? "translate-x-4" : ""}`} />
+            </span>
+          </button>
+
+          <button
+            className="flex w-full items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90"
+            onClick={onChangePassword}
+          >
+            <KeyRound size={18} /> Change Password
+          </button>
+
+          <button
+            className="flex w-full items-center justify-between rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90"
+            onClick={toggleDarkMode}
+          >
+            <span className="inline-flex items-center gap-3">
+              {darkModeEnabled ? <Moon size={18} /> : <Sun size={18} />} Enable Dark Mode
+            </span>
+            <span className={`h-5 w-9 rounded-full p-0.5 transition ${darkModeEnabled ? "bg-emerald-300" : "bg-white/30"}`}>
+              <span className={`block h-4 w-4 rounded-full bg-white transition ${darkModeEnabled ? "translate-x-4" : ""}`} />
+            </span>
+          </button>
+        </nav>
       </motion.aside>
 
       {menuOpen ? <button className="fixed inset-0 z-20 bg-black/30" onClick={() => setMenuOpen(false)} aria-label="Close side menu" /> : null}

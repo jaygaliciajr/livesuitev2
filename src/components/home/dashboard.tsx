@@ -75,28 +75,28 @@ export function HomeDashboard() {
 
   const metricCards = [
     {
-      label: "Total Units Mined",
+      label: "Total Pcs",
       value: formatCount(metrics.totalPcs),
       description: "Reserved product units",
       icon: Package,
       iconTone: "text-sky-600 bg-sky-50 dark:bg-sky-500/15 dark:text-sky-300",
     },
     {
-      label: "Total Invoice Value",
+      label: "Total Invoice",
       value: formatCurrency(metrics.totalInvoice),
       description: "Recorded invoice revenue",
       icon: FileText,
       iconTone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300",
     },
     {
-      label: "Outstanding Balance",
+      label: "Unpaid Amount",
       value: formatCurrency(metrics.unpaidAmount),
       description: "Pending customer balances",
       icon: HandCoins,
       iconTone: "text-rose-600 bg-rose-50 dark:bg-rose-500/15 dark:text-rose-300",
     },
     {
-      label: "Active Miners",
+      label: "Total Miners",
       value: formatCount(metrics.totalMiners),
       description: "Unique active customers",
       icon: UsersRound,
@@ -161,7 +161,7 @@ export function HomeDashboard() {
                 href={link.href}
                 className="group flex h-[92px] flex-col items-center justify-center rounded-2xl border border-border bg-background text-center transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card"
               >
-                <span className="mb-2 rounded-xl border border-border/80 bg-slate-100/85 p-2 text-slate-600 transition group-hover:bg-slate-200/75 group-hover:text-primary dark:bg-slate-800/80 dark:text-slate-300 dark:group-hover:bg-slate-700/80">
+                <span className="mb-2 p-1 text-muted transition group-hover:text-primary">
                   <Icon size={19} />
                 </span>
                 <span className="text-[13px] font-semibold leading-tight text-foreground">{link.label}</span>
