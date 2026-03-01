@@ -3,6 +3,8 @@ import {
   Customer,
   DashboardMetrics,
   Invoice,
+  InvoiceListItem,
+  InvoiceOrderLine,
   LiveOrderRow,
   LiveSession,
   Payment,
@@ -279,6 +281,14 @@ export async function listSessionOrderRows(sessionId: string, search = "") {
   return rows.filter((row) => row.customer_name.toLowerCase().includes(q) || row.product_code.toLowerCase().includes(q));
 }
 
+function parseVariantNote(note?: string | null) {
+  if (!note) return { color: "", size: "", userNote: "" };
+  if (!note.startsWith("variant:")) return { color: "", size: "", userNote: note };
+  const raw = note.replace("variant:", "");
+  const [color = "", size = "", userNote = ""] = raw.split("|");
+  return { color, size, userNote };
+}
+
 export async function generateDraftInvoices(sessionId: string) {
   guardSupabase();
   const { data, error } = await supabase.rpc("generate_draft_invoices", { p_session_id: sessionId });
@@ -294,6 +304,90 @@ export async function listInvoices() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Array<Invoice & { customers?: { full_name: string } }>;
+}
+
+export async function listInvoicesWithFilters(filters?: {
+  from?: string;
+  to?: string;
+  supplierId?: string;
+}) {
+  guardSupabase();
+  let query = supabase
+    .from("invoices")
+    .select("id, session_id, customer_id, total_amount, paid_amount, status, created_at, customers(full_name), live_sessions(supplier_id, suppliers(name))")
+    .order("created_at", { ascending: false });
+
+  if (filters?.from) query = query.gte("created_at", filters.from);
+  if (filters?.to) query = query.lte("created_at", filters.to);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = (data ?? []).map((item: any) => ({
+    id: item.id,
+    session_id: item.session_id,
+    customer_id: item.customer_id,
+    total_amount: Number(item.total_amount),
+    paid_amount: Number(item.paid_amount),
+    status: item.status,
+    created_at: item.created_at,
+    customer_name: item.customers?.full_name || "Unknown customer",
+    supplier_id: item.live_sessions?.supplier_id || null,
+    supplier_name: item.live_sessions?.suppliers?.name || "Unknown supplier",
+  })) as InvoiceListItem[];
+
+  if (filters?.supplierId) {
+    return rows.filter((item) => item.supplier_id === filters.supplierId);
+  }
+  return rows;
+}
+
+export async function getInvoiceDetail(invoiceId: string) {
+  guardSupabase();
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("*, customers(full_name, phone), live_sessions(supplier_id, suppliers(name), started_at)")
+    .eq("id", invoiceId)
+    .single();
+  if (invoiceError) throw invoiceError;
+
+  const { data: linesRaw, error: linesError } = await supabase
+    .from("session_order_lines")
+    .select("id, qty, line_total, note, products!inner(product_code, suppliers(name)), session_orders!inner(session_id, customer_id)")
+    .eq("session_orders.session_id", invoice.session_id)
+    .eq("session_orders.customer_id", invoice.customer_id)
+    .order("created_at", { ascending: false });
+  if (linesError) throw linesError;
+
+  const lines = (linesRaw ?? []).map((row: any) => {
+    const variant = parseVariantNote(row.note);
+    return {
+      line_id: row.id,
+      product_code: row.products.product_code,
+      supplier_name: row.products.suppliers?.name || "Unknown supplier",
+      qty: Number(row.qty),
+      amount: Number(row.line_total),
+      color: variant.color,
+      size: variant.size,
+      note: variant.userNote,
+    };
+  }) as InvoiceOrderLine[];
+
+  return {
+    invoice: {
+      id: invoice.id,
+      session_id: invoice.session_id,
+      customer_id: invoice.customer_id,
+      total_amount: Number(invoice.total_amount),
+      paid_amount: Number(invoice.paid_amount),
+      status: invoice.status,
+      created_at: invoice.created_at,
+      customer_name: invoice.customers?.full_name || "Unknown customer",
+      customer_phone: invoice.customers?.phone || "",
+      supplier_name: invoice.live_sessions?.suppliers?.name || "Unknown supplier",
+      live_started_at: invoice.live_sessions?.started_at || null,
+    },
+    lines,
+  };
 }
 
 export async function updateInvoicePayment(invoiceId: string, paidAmount: number) {

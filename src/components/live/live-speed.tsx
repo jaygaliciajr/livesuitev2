@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Camera,
   Check,
   CircleCheck,
   Clock3,
@@ -14,6 +16,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Upload,
   UserRoundPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +61,7 @@ type CustomerPriority = (typeof PRIORITY_ORDER)[number];
 const COLOR_OPTIONS = ["Black", "White", "Red", "Blue", "Pink", "Green"];
 
 export function LiveSpeedScreen() {
+  const router = useRouter();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
@@ -87,6 +91,8 @@ export function LiveSpeedScreen() {
     category: "",
     price: "0",
     size: "",
+    variantSizes: "",
+    variantColors: "",
     photo_url: "",
   });
 
@@ -102,6 +108,7 @@ export function LiveSpeedScreen() {
   const [balanceMap, setBalanceMap] = useState<Record<string, number>>({});
 
   const [supplierLogoMap, setSupplierLogoMap] = useState<Record<string, string>>({});
+  const [productVariantMap, setProductVariantMap] = useState<Record<string, { sizes: string[]; colors: string[] }>>({});
   const [priorityMap, setPriorityMap] = useState<Record<string, CustomerPriority>>({});
 
   const lowStockThreshold = useMemo(() => {
@@ -165,9 +172,11 @@ export function LiveSpeedScreen() {
     if (typeof window !== "undefined") {
       setOnline(navigator.onLine);
       const logosRaw = window.localStorage.getItem("ls-supplier-logos");
+      const variantsRaw = window.localStorage.getItem("ls-product-variants");
       const prioritiesRaw = window.localStorage.getItem("ls-customer-priorities");
 
       if (logosRaw) setSupplierLogoMap(JSON.parse(logosRaw));
+      if (variantsRaw) setProductVariantMap(JSON.parse(variantsRaw));
       if (prioritiesRaw) setPriorityMap(JSON.parse(prioritiesRaw));
 
       const onOnline = () => setOnline(true);
@@ -200,8 +209,15 @@ export function LiveSpeedScreen() {
 
   useEffect(() => {
     if (!activeProduct) return;
-    setCustomerForm((prev) => ({ ...prev, size: prev.size || activeProduct.size || "" }));
-  }, [activeProduct]);
+    const variantPreset = productVariantMap[activeProduct.id];
+    const fallbackSize = variantPreset?.sizes?.[0] || activeProduct.size || "Pre-size";
+    const fallbackColor = variantPreset?.colors?.[0] || "";
+    setCustomerForm((prev) => ({
+      ...prev,
+      size: prev.size || fallbackSize,
+      color: prev.color || fallbackColor,
+    }));
+  }, [activeProduct, productVariantMap]);
 
   async function loadSuppliers() {
     try {
@@ -295,8 +311,29 @@ export function LiveSpeedScreen() {
         photo_url: newProduct.photo_url,
       });
 
+      const created = await listProducts(selectedSupplier.id, newProduct.product_code.trim().toUpperCase());
+      const createdItem = created.find((item) => item.product_code === newProduct.product_code.trim().toUpperCase());
+      if (createdItem) {
+        const variants = {
+          sizes: parseCsv(newProduct.variantSizes),
+          colors: parseCsv(newProduct.variantColors),
+        };
+        const nextVariants = { ...productVariantMap, [createdItem.id]: variants };
+        setProductVariantMap(nextVariants);
+        window.localStorage.setItem("ls-product-variants", JSON.stringify(nextVariants));
+      }
+
       setProductModal(false);
-      setNewProduct({ product_code: "", stock: 1, category: "", price: "0", size: "", photo_url: "" });
+      setNewProduct({
+        product_code: "",
+        stock: 1,
+        category: "",
+        price: "0",
+        size: "",
+        variantSizes: "",
+        variantColors: "",
+        photo_url: "",
+      });
       await loadProducts(selectedSupplier.id);
     } catch (err: any) {
       setError(err.message || "Unable to add product.");
@@ -347,13 +384,15 @@ export function LiveSpeedScreen() {
         ? customerSuggestions.find((item) => item.id === customerForm.customerId) || (await findOrCreateCustomer(customerForm.customerName))
         : await findOrCreateCustomer(customerForm.customerName);
 
-      const lineNote = buildVariantNote({ color: customerForm.color, size: customerForm.size, note: customerForm.note });
+      const normalizedQty = Number(customerForm.qty) > 0 ? Number(customerForm.qty) : 1;
+      const normalizedSize = customerForm.size.trim() || "Pre-size";
+      const lineNote = buildVariantNote({ color: customerForm.color, size: normalizedSize, note: customerForm.note });
 
       await addMinerLine({
         sessionId: session.id,
         customerId: customer.id,
         productId: activeProduct.id,
-        qty: customerForm.qty,
+        qty: normalizedQty,
         note: lineNote,
       });
 
@@ -402,17 +441,7 @@ export function LiveSpeedScreen() {
   }
 
   async function onGenerateDraftInvoices() {
-    if (!session) return;
-    setLoading(true);
-    try {
-      await generateDraftInvoices(session.id);
-      await loadBalances();
-      await onCloseSession();
-    } catch (err: any) {
-      setError(err.message || "Failed to generate invoices.");
-    } finally {
-      setLoading(false);
-    }
+    await onCloseSession();
   }
 
   function onExportSummary() {
@@ -445,6 +474,7 @@ export function LiveSpeedScreen() {
 
   async function onCloseSession() {
     if (!session) return;
+    await generateDraftInvoices(session.id);
     await endLiveSession(session.id);
     setSession(null);
     setSummaryModal(false);
@@ -452,6 +482,21 @@ export function LiveSpeedScreen() {
     setProducts([]);
     setActiveProductState(null);
     setOrderRows([]);
+    router.push("/invoices");
+  }
+
+  async function onSupplierFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setNewSupplier((prev) => ({ ...prev, logoUrl: dataUrl }));
+  }
+
+  async function onProductFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    setNewProduct((prev) => ({ ...prev, photo_url: dataUrl }));
   }
 
   const selectedSupplierLogo = selectedSupplier ? supplierLogoMap[selectedSupplier.id] : "";
@@ -645,6 +690,16 @@ export function LiveSpeedScreen() {
             value={newSupplier.logoUrl}
             onChange={(event) => setNewSupplier((prev) => ({ ...prev, logoUrl: event.target.value }))}
           />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-muted">
+              <Upload size={14} /> Gallery
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => void onSupplierFile(event)} />
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-muted">
+              <Camera size={14} /> Camera
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => void onSupplierFile(event)} />
+            </label>
+          </div>
           <Button className="w-full" size="lg" onClick={onAddSupplier} disabled={!newSupplier.name.trim() || loading}>
             Save Supplier
           </Button>
@@ -683,10 +738,32 @@ export function LiveSpeedScreen() {
           />
           <Input label="Size" value={newProduct.size} onChange={(event) => setNewProduct((prev) => ({ ...prev, size: event.target.value }))} />
           <Input
+            label="Variant Sizes (comma-separated)"
+            placeholder="S, M, L"
+            value={newProduct.variantSizes}
+            onChange={(event) => setNewProduct((prev) => ({ ...prev, variantSizes: event.target.value }))}
+          />
+          <Input
+            label="Variant Colors (comma-separated)"
+            placeholder="Black, White, Red"
+            value={newProduct.variantColors}
+            onChange={(event) => setNewProduct((prev) => ({ ...prev, variantColors: event.target.value }))}
+          />
+          <Input
             label="Product image URL (optional)"
             value={newProduct.photo_url}
             onChange={(event) => setNewProduct((prev) => ({ ...prev, photo_url: event.target.value }))}
           />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-muted">
+              <Upload size={14} /> Gallery
+              <input type="file" accept="image/*" className="hidden" onChange={(event) => void onProductFile(event)} />
+            </label>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-muted">
+              <Camera size={14} /> Camera
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => void onProductFile(event)} />
+            </label>
+          </div>
           <Button className="w-full" size="lg" onClick={onAddProduct} disabled={loading || !newProduct.product_code.trim()}>
             Save Product
           </Button>
@@ -746,7 +823,7 @@ export function LiveSpeedScreen() {
           <div>
             <p className="mb-1 text-sm text-muted">Color</p>
             <div className="flex flex-wrap gap-2">
-              {COLOR_OPTIONS.map((color) => (
+              {(productVariantMap[activeProduct?.id || ""]?.colors?.length ? productVariantMap[activeProduct?.id || ""]?.colors : COLOR_OPTIONS).map((color) => (
                 <button
                   key={color}
                   className={cn(
@@ -757,6 +834,28 @@ export function LiveSpeedScreen() {
                 >
                   {customerForm.color === color ? <Check size={12} className="mr-1 inline" /> : null}
                   {color}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 text-sm text-muted">Size presets</p>
+            <div className="flex flex-wrap gap-2">
+              {(productVariantMap[activeProduct?.id || ""]?.sizes?.length
+                ? productVariantMap[activeProduct?.id || ""]?.sizes
+                : [activeProduct?.size || "Pre-size"]
+              ).map((size) => (
+                <button
+                  key={size}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium",
+                    customerForm.size === size ? "border-primary bg-primary/10 text-primary" : "border-border text-muted",
+                  )}
+                  onClick={() => setCustomerForm((prev) => ({ ...prev, size }))}
+                >
+                  {customerForm.size === size ? <Check size={12} className="mr-1 inline" /> : null}
+                  {size}
                 </button>
               ))}
             </div>
@@ -876,7 +975,7 @@ export function LiveSpeedScreen() {
           <SummaryItem label="Unpaid Total" value={formatCurrency(summary.unpaidTotal)} />
 
           <Button className="w-full" size="lg" onClick={onGenerateDraftInvoices} disabled={loading}>
-            Generate Draft Invoices
+            Close Session & Open Invoices
           </Button>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" onClick={onExportSummary}>
@@ -970,4 +1069,20 @@ function priorityTone(priority: CustomerPriority) {
 
 function formatCount(value: number) {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value || 0);
+}
+
+function parseCsv(input: string) {
+  return input
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.readAsDataURL(file);
+  });
 }

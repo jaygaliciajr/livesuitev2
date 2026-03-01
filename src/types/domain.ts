@@ -90,6 +90,12 @@ export interface LiveOrderRow {
   product_id: string;
   product_code: string;
   price_snapshot: number;
+  supplier_id?: string;
+  supplier_name?: string;
+  color?: string;
+  size?: string;
+  userNote?: string;
+  priority?: "normal" | "high" | "vip";
 }
 
 export interface DashboardMetrics {
@@ -105,4 +111,21 @@ export interface SessionSummary {
   totalSalesAmount: number;
   totalMiners: number;
   unpaidTotal: number;
+}
+
+export interface InvoiceListItem extends Invoice {
+  customer_name: string;
+  supplier_id: string | null;
+  supplier_name: string;
+}
+
+export interface InvoiceOrderLine {
+  line_id: string;
+  product_code: string;
+  supplier_name: string;
+  qty: number;
+  amount: number;
+  color: string;
+  size: string;
+  note: string;
 }
