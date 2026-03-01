@@ -59,3 +59,61 @@ h3,
 h4 {
   font-family: var(--font-sora), sans-serif;
 }
+
+@keyframes softDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(8px, -8px, 0) scale(1.02);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.metric-tone-base::before,
+.metric-tone-base::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.metric-tone-base::before {
+  width: 130px;
+  height: 130px;
+  right: -40px;
+  top: -42px;
+  opacity: 0.3;
+  animation: softDrift 6s ease-in-out infinite;
+}
+
+.metric-tone-base::after {
+  width: 90px;
+  height: 90px;
+  left: -24px;
+  bottom: -26px;
+  opacity: 0.22;
+  animation: softDrift 7s ease-in-out infinite reverse;
+}
+
+.metric-tone-blue::before,
+.metric-tone-blue::after {
+  background: linear-gradient(145deg, #76ccff, #2f7cf4);
+}
+
+.metric-tone-green::before,
+.metric-tone-green::after {
+  background: linear-gradient(145deg, #7de8b7, #16b364);
+}
+
+.metric-tone-pink::before,
+.metric-tone-pink::after {
+  background: linear-gradient(145deg, #ffa9c6, #f43f8a);
+}
+
+.metric-tone-purple::before,
+.metric-tone-purple::after {
+  background: linear-gradient(145deg, #d79dff, #bf5af2);
+}
