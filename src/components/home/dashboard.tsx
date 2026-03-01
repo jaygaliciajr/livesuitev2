@@ -161,7 +161,7 @@ export function HomeDashboard() {
                 href={link.href}
                 className="group flex h-[92px] flex-col items-center justify-center rounded-2xl border border-border bg-background text-center transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card"
               >
-                <span className="mb-2 rounded-xl border border-border bg-panel p-2 text-muted transition group-hover:text-primary">
+                <span className="mb-2 rounded-xl border border-border/80 bg-slate-100/85 p-2 text-slate-600 transition group-hover:bg-slate-200/75 group-hover:text-primary dark:bg-slate-800/80 dark:text-slate-300 dark:group-hover:bg-slate-700/80">
                   <Icon size={19} />
                 </span>
                 <span className="text-[13px] font-semibold leading-tight text-foreground">{link.label}</span>

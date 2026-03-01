@@ -127,7 +127,8 @@ export function InvoicesModule() {
         {items.map((item) => {
           const uiStatus = getInvoiceUiStatus(item, metaMap[item.id]?.dueDate, submittedMap[item.id]);
           return (
-            <Card key={item.id} className="space-y-2">
+            <Link key={item.id} href={`/invoices/${item.id}`} className="block">
+            <Card className="space-y-2 transition hover:border-primary/35 hover:shadow-soft">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{item.customer_name}</p>
@@ -152,17 +153,18 @@ export function InvoicesModule() {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <Link href={`/invoices/${item.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background text-sm font-medium text-foreground">
+                <span className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background text-sm font-medium text-foreground">
                   Open
-                </Link>
-                <Button variant="secondary" size="sm" onClick={() => onQuickPay(item)}>
+                </span>
+                <Button variant="secondary" size="sm" onClick={(event) => { event.preventDefault(); void onQuickPay(item); }}>
                   Update
                 </Button>
-                <Button size="sm" onClick={() => onToggleSubmitted(item.id)}>
+                <Button size="sm" onClick={(event) => { event.preventDefault(); onToggleSubmitted(item.id); }}>
                   {submittedMap[item.id] ? "Unsubmit" : "Submitted"}
                 </Button>
               </div>
             </Card>
+            </Link>
           );
         })}
       </div>
