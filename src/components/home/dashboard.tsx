@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import {
   BadgeDollarSign,
   CalendarClock,
+  ChartNoAxesColumnIncreasing,
   Clock3,
   FileText,
   HandCoins,
@@ -86,40 +87,32 @@ export function HomeDashboard() {
 
   const metricCards = [
     {
-      label: "Total Pcs",
+      label: "Total Units Mined",
       value: formatCount(metrics.totalPcs),
-      description: "Items added to carts",
+      description: "Aggregate product quantities reserved within the selected period.",
       icon: Package,
-      tone: "metric-tone-blue",
-      valueTone: "text-sky-600",
-      iconTone: "bg-sky-100 text-sky-600",
+      iconTone: "text-sky-600 bg-sky-50 dark:bg-sky-500/15 dark:text-sky-300",
     },
     {
-      label: "Total Invoice",
+      label: "Total Invoice Value",
       value: formatCurrency(metrics.totalInvoice),
-      description: "Generated from all carts",
+      description: "Gross invoiced amount generated from live selling sessions.",
       icon: FileText,
-      tone: "metric-tone-green",
-      valueTone: "text-emerald-600",
-      iconTone: "bg-emerald-100 text-emerald-600",
+      iconTone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300",
     },
     {
-      label: "Unpaid Amount",
+      label: "Outstanding Balance",
       value: formatCurrency(metrics.unpaidAmount),
-      description: "Waiting for payment",
+      description: "Open receivables not yet settled by customer payments.",
       icon: HandCoins,
-      tone: "metric-tone-pink",
-      valueTone: "text-rose-600",
-      iconTone: "bg-rose-100 text-rose-600",
+      iconTone: "text-rose-600 bg-rose-50 dark:bg-rose-500/15 dark:text-rose-300",
     },
     {
-      label: "Total Miners",
+      label: "Active Miners",
       value: formatCount(metrics.totalMiners),
-      description: "Customer interactions",
+      description: "Unique customers with mined orders during the date range.",
       icon: UsersRound,
-      tone: "metric-tone-purple",
-      valueTone: "text-fuchsia-600",
-      iconTone: "bg-fuchsia-100 text-fuchsia-600",
+      iconTone: "text-violet-600 bg-violet-50 dark:bg-violet-500/15 dark:text-violet-300",
     },
   ] as const;
 
@@ -129,47 +122,52 @@ export function HomeDashboard() {
   }
 
   return (
-    <div className="space-y-4 pb-2">
+    <div className="space-y-5 pb-2">
       <header className="space-y-3">
-        <Card className="rounded-[28px] border-0 bg-white/90 px-4 py-3 shadow-[0_16px_32px_rgba(44,64,106,0.13)] backdrop-blur">
-          <div className="flex items-center justify-between gap-3">
+        <Card className="rounded-3xl border border-border/80 bg-panel px-4 py-4 shadow-card">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="inline-flex rounded-full bg-slate-100 p-1 text-xs font-semibold">
+              <div className="inline-flex rounded-full border border-border bg-background p-1 text-xs font-semibold tracking-wide">
                 <button
-                  className={cn("rounded-full px-3 py-1", role === "OWNER" ? "bg-slate-900 text-white" : "text-slate-500")}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 transition",
+                    role === "OWNER" ? "bg-primary text-white" : "text-muted hover:text-foreground",
+                  )}
                   onClick={() => onSetRole("OWNER")}
                 >
                   OWNER
                 </button>
                 <button
-                  className={cn("rounded-full px-3 py-1", role === "ADMIN" ? "bg-slate-900 text-white" : "text-slate-500")}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 transition",
+                    role === "ADMIN" ? "bg-primary text-white" : "text-muted hover:text-foreground",
+                  )}
                   onClick={() => onSetRole("ADMIN")}
                 >
                   ADMIN
                 </button>
               </div>
-              <p className="mt-2 text-[27px] font-semibold leading-none text-slate-800">{greeting}</p>
-              <p className="mt-1 text-sm text-slate-500">Let&apos;s make this live session smooth and fast.</p>
+              <p className="mt-3 text-xl font-semibold tracking-tight text-foreground">{greeting}</p>
+              <p className="mt-1 text-sm text-muted">Welcome back. Your sales performance is ready for review.</p>
             </div>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-200 via-cyan-100 to-blue-300 text-lg font-bold text-slate-700 shadow-inner">
-              {role === "OWNER" ? "O" : "A"}
-            </div>
+            <span className="inline-flex h-11 items-center rounded-full border border-border bg-background px-3 text-xs font-semibold text-muted">
+              {role}
+            </span>
           </div>
         </Card>
 
-        <div className="flex items-center justify-between gap-2 px-1">
-          <h2 className="text-3xl font-semibold tracking-tight text-slate-800">Sales Overview</h2>
-          <Card className="min-w-40 rounded-full border-0 bg-white/80 px-3 py-2 shadow-none">
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-              <CalendarClock size={16} />
-              <span>
-                {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : "Custom"}
-              </span>
-            </div>
-          </Card>
+        <div className="flex items-end justify-between gap-3 px-0.5">
+          <div>
+            <h1 className="text-[1.8rem] font-semibold leading-none tracking-tight text-foreground">Sales Overview</h1>
+            <p className="mt-1 text-sm text-muted">Operational summary for live-selling performance.</p>
+          </div>
+          <div className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-panel px-3 text-sm font-medium text-muted">
+            <CalendarClock size={15} />
+            {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : "Custom"}
+          </div>
         </div>
 
-        <Card className="space-y-3 rounded-2xl border-0 bg-white/75 shadow-none">
+        <Card className="space-y-3 rounded-2xl border border-border bg-panel shadow-card">
           <SegmentedControl
             value={dateFilter}
             onChange={setDateFilter}
@@ -192,13 +190,16 @@ export function HomeDashboard() {
 
       <section className="grid grid-cols-2 gap-3">
         {metricCards.map((metric, index) => (
-          <MetricCard key={metric.label} {...metric} delay={index * 0.06} loading={loading} />
+          <MetricCard key={metric.label} {...metric} delay={index * 0.05} loading={loading} />
         ))}
       </section>
 
-      <Card className="rounded-[28px] border-0 bg-white/90 p-3.5 shadow-[0_16px_32px_rgba(44,64,106,0.11)]">
-        <div className="mb-2.5 px-1">
-          <h2 className="text-base font-semibold text-slate-800">Quick Access</h2>
+      <Card className="rounded-3xl border border-border bg-panel p-3.5 shadow-card">
+        <div className="mb-2.5 flex items-center justify-between px-1">
+          <h2 className="text-base font-semibold text-foreground">Quick Access</h2>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
+            <ChartNoAxesColumnIncreasing size={13} /> Modules
+          </span>
         </div>
         <div className="grid grid-cols-4 gap-2">
           {quickLinks.map((link) => {
@@ -207,12 +208,12 @@ export function HomeDashboard() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="group flex h-[92px] flex-col items-center justify-center rounded-2xl bg-slate-50 text-center transition hover:-translate-y-0.5 hover:bg-slate-100"
+                className="group flex h-[92px] flex-col items-center justify-center rounded-2xl border border-border bg-background text-center transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card"
               >
-                <span className="mb-2 rounded-xl bg-white p-2 text-slate-700 shadow-sm transition group-hover:text-primary">
+                <span className="mb-2 rounded-xl border border-border bg-panel p-2 text-muted transition group-hover:text-primary">
                   <Icon size={19} />
                 </span>
-                <span className="text-[13px] font-semibold leading-tight text-slate-700">{link.label}</span>
+                <span className="text-[13px] font-semibold leading-tight text-foreground">{link.label}</span>
               </Link>
             );
           })}
@@ -227,8 +228,6 @@ function MetricCard({
   value,
   description,
   icon: Icon,
-  tone,
-  valueTone,
   iconTone,
   loading,
   delay,
@@ -237,8 +236,6 @@ function MetricCard({
   value: string;
   description: string;
   icon: React.ComponentType<{ size?: number }>;
-  tone: string;
-  valueTone: string;
   iconTone: string;
   loading: boolean;
   delay: number;
@@ -247,36 +244,32 @@ function MetricCard({
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay }}
-      className={cn(
-        "relative overflow-hidden rounded-3xl border-0 bg-white px-4 py-4 shadow-[0_16px_30px_rgba(31,48,85,0.12)]",
-        "metric-tone-base",
-        tone,
-      )}
+      transition={{ duration: 0.28, delay }}
+      className="rounded-2xl border border-border bg-panel p-4 shadow-card"
     >
-      <div className="relative z-10 flex items-start justify-between">
-        <p className="text-sm font-semibold text-slate-500">{label}</p>
+      <div className="flex items-start justify-between">
+        <p className="text-sm font-semibold text-muted">{label}</p>
         <span className={cn("rounded-xl p-2", iconTone)}>
-          <Icon size={17} />
+          <Icon size={16} />
         </span>
       </div>
       <motion.p
         key={value}
-        initial={{ opacity: 0.25, y: 7 }}
+        initial={{ opacity: 0.35, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
-        className={cn("relative z-10 mt-4 text-[2rem] font-bold leading-none", valueTone)}
+        className="mt-4 text-2xl font-semibold tracking-tight text-foreground"
       >
         {loading ? "..." : value}
       </motion.p>
-      <p className="relative z-10 mt-5 text-sm text-slate-500">{description}</p>
+      <p className="mt-4 text-xs leading-relaxed text-muted">{description}</p>
     </motion.article>
   );
 }
 
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 18) return "Good Afternoon";
-  return "Good Evening";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
