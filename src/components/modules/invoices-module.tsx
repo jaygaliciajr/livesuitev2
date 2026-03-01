@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarRange, CircleDollarSign, Coins, CreditCard, ReceiptText } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
-import { listInvoicesWithFilters, listSuppliers, updateInvoicePayment } from "@/lib/data";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { listInvoicesWithFilters, listSuppliers } from "@/lib/data";
 import { formatCurrency, toDateInputValue } from "@/lib/utils";
 import { InvoiceListItem, Supplier } from "@/types/domain";
 
@@ -15,6 +15,7 @@ const SUBMITTED_STORAGE = "ls-invoice-submitted";
 const META_STORAGE = "ls-invoice-meta";
 
 type UiStatus = "New" | "Paid" | "Unpaid" | "Partial" | "Overdue" | "Submitted";
+type InvoiceTab = "to_send" | "unpaid" | "overdue" | "paid";
 
 export function InvoicesModule() {
   const [items, setItems] = useState<InvoiceListItem[]>([]);
@@ -24,6 +25,7 @@ export function InvoicesModule() {
     to: "",
     supplierId: "",
   });
+  const [activeTab, setActiveTab] = useState<InvoiceTab>("to_send");
 
   const [submittedMap, setSubmittedMap] = useState<Record<string, boolean>>({});
   const [metaMap, setMetaMap] = useState<Record<string, { dueDate?: string }>>({});
@@ -66,21 +68,6 @@ export function InvoicesModule() {
     void loadInvoices();
   }, [loadInvoices, submittedMap, metaMap]);
 
-  async function onQuickPay(invoice: InvoiceListItem) {
-    const value = window.prompt("Paid amount", String(invoice.paid_amount));
-    if (!value) return;
-    const amount = Number(value);
-    if (!Number.isFinite(amount)) return;
-    await updateInvoicePayment(invoice.id, amount);
-    await loadInvoices();
-  }
-
-  function onToggleSubmitted(invoiceId: string) {
-    const next = { ...submittedMap, [invoiceId]: !submittedMap[invoiceId] };
-    setSubmittedMap(next);
-    window.localStorage.setItem(SUBMITTED_STORAGE, JSON.stringify(next));
-  }
-
   const summary = useMemo(() => {
     const totalSales = items.reduce((sum, item) => sum + item.total_amount, 0);
     const paidAmount = items.reduce((sum, item) => sum + item.paid_amount, 0);
@@ -88,6 +75,17 @@ export function InvoicesModule() {
     const totalOutstanding = unpaidAmount;
     return { totalSales, paidAmount, unpaidAmount, totalOutstanding };
   }, [items]);
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const uiStatus = getInvoiceUiStatus(item, metaMap[item.id]?.dueDate, submittedMap[item.id]);
+      if (activeTab === "to_send") return !submittedMap[item.id];
+      if (activeTab === "unpaid") return uiStatus === "Unpaid" || uiStatus === "Partial";
+      if (activeTab === "overdue") return uiStatus === "Overdue";
+      if (activeTab === "paid") return uiStatus === "Paid";
+      return true;
+    });
+  }, [items, activeTab, metaMap, submittedMap]);
 
   return (
     <div className="space-y-4">
@@ -104,6 +102,16 @@ export function InvoicesModule() {
       </section>
 
       <Card className="space-y-3">
+        <SegmentedControl
+          value={activeTab}
+          onChange={(value) => setActiveTab(value as InvoiceTab)}
+          options={[
+            { label: "To Send", value: "to_send" },
+            { label: "Unpaid", value: "unpaid" },
+            { label: "Overdue", value: "overdue" },
+            { label: "Paid", value: "paid" },
+          ]}
+        />
         <div className="grid grid-cols-2 gap-2">
           <Input type="date" label="From" value={filters.from} onChange={(event) => setFilters((prev) => ({ ...prev, from: event.target.value }))} />
           <Input type="date" label="To" value={filters.to} onChange={(event) => setFilters((prev) => ({ ...prev, to: event.target.value }))} />
@@ -124,52 +132,40 @@ export function InvoicesModule() {
       </Card>
 
       <div className="space-y-2">
-        {items.map((item) => {
+        {filteredItems.map((item) => {
           const uiStatus = getInvoiceUiStatus(item, metaMap[item.id]?.dueDate, submittedMap[item.id]);
           return (
             <Link key={item.id} href={`/invoices/${item.id}`} className="block">
-            <Card className="space-y-2 transition hover:border-primary/35 hover:shadow-soft">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{item.customer_name}</p>
-                  <p className="text-xs text-muted">{item.supplier_name} • {new Date(item.created_at).toLocaleDateString()}</p>
+              <Card className="space-y-2 transition hover:border-primary/35 hover:shadow-soft">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{item.customer_name}</p>
+                    <p className="text-xs text-muted">{item.supplier_name} • {new Date(item.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <StatusBadge status={uiStatus} />
                 </div>
-                <StatusBadge status={uiStatus} />
-              </div>
 
-              <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-2 text-xs">
-                <div>
-                  <p className="text-muted">Total</p>
-                  <p className="font-semibold text-foreground">{formatCurrency(item.total_amount)}</p>
+                <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-background p-2 text-xs">
+                  <div>
+                    <p className="text-muted">Total</p>
+                    <p className="font-semibold text-foreground">{formatCurrency(item.total_amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted">Paid</p>
+                    <p className="font-semibold text-foreground">{formatCurrency(item.paid_amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted">Unpaid</p>
+                    <p className="font-semibold text-foreground">{formatCurrency(Math.max(item.total_amount - item.paid_amount, 0))}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-muted">Paid</p>
-                  <p className="font-semibold text-foreground">{formatCurrency(item.paid_amount)}</p>
-                </div>
-                <div>
-                  <p className="text-muted">Unpaid</p>
-                  <p className="font-semibold text-foreground">{formatCurrency(Math.max(item.total_amount - item.paid_amount, 0))}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <span className="inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background text-sm font-medium text-foreground">
-                  Open
-                </span>
-                <Button variant="secondary" size="sm" onClick={(event) => { event.preventDefault(); void onQuickPay(item); }}>
-                  Update
-                </Button>
-                <Button size="sm" onClick={(event) => { event.preventDefault(); onToggleSubmitted(item.id); }}>
-                  {submittedMap[item.id] ? "Unsubmit" : "Submitted"}
-                </Button>
-              </div>
-            </Card>
+              </Card>
             </Link>
           );
         })}
       </div>
 
-      {items.length === 0 ? <EmptyState title="No invoices" body="Close a live session to auto-generate invoices." /> : null}
+      {filteredItems.length === 0 ? <EmptyState title="No invoices" body="Close a live session to auto-generate invoices." /> : null}
 
       <Card className="border-border bg-panel">
         <div className="flex items-start gap-2 text-xs text-muted">

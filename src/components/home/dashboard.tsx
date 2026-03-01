@@ -50,6 +50,8 @@ export function HomeDashboard() {
   const [profitFilter, setProfitFilter] = useState<ProfitFilter>("today");
   const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
   const [previousMetrics, setPreviousMetrics] = useState<DashboardMetrics>(initialMetrics);
+  const [expenseCurrent, setExpenseCurrent] = useState(0);
+  const [expensePrevious, setExpensePrevious] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +71,10 @@ export function HomeDashboard() {
         if (!mounted) return;
         setMetrics(current);
         setPreviousMetrics(previous);
+        const expensesRaw = window.localStorage.getItem("ls-expenses");
+        const expenses = expensesRaw ? (JSON.parse(expensesRaw) as Array<{ date: string; amount: number }>) : [];
+        setExpenseCurrent(sumExpensesForRange(expenses, ranges.current.from, ranges.current.to));
+        setExpensePrevious(sumExpensesForRange(expenses, ranges.previous.from, ranges.previous.to));
       } catch (err: any) {
         if (mounted) setError(err.message || "Failed to load dashboard metrics.");
       } finally {
@@ -82,14 +88,13 @@ export function HomeDashboard() {
     };
   }, [ranges]);
 
-  const expenseRatio = 0.22;
   const revenue = metrics.totalInvoice;
-  const expenses = revenue * expenseRatio;
+  const expenses = expenseCurrent;
   const netProfit = revenue - expenses;
   const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
   const previousRevenue = previousMetrics.totalInvoice;
-  const previousExpenses = previousRevenue * expenseRatio;
+  const previousExpenses = expensePrevious;
   const previousNet = previousRevenue - previousExpenses;
   const growth = previousNet > 0 ? ((netProfit - previousNet) / previousNet) * 100 : 0;
 
@@ -285,4 +290,16 @@ function buildSparkline(netProfit: number, previousNet: number, revenue: number)
   });
 
   return points.join(" ");
+}
+
+function sumExpensesForRange(expenses: Array<{ date: string; amount: number }>, from: Date, to: Date) {
+  const fromTime = from.getTime();
+  const toTime = to.getTime();
+  return expenses.reduce((sum, expense) => {
+    const expenseTime = new Date(expense.date).getTime();
+    if (expenseTime >= fromTime && expenseTime <= toTime) {
+      return sum + Number(expense.amount || 0);
+    }
+    return sum;
+  }, 0);
 }

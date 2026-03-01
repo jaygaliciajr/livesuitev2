@@ -224,27 +224,6 @@ export function InvoiceDetailModule({ invoiceId }: { invoiceId: string }) {
         </div>
       </Card>
 
-      <Card className="space-y-2 border-border bg-panel">
-        <p className="text-xs font-medium text-muted">Export & Share</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-foreground" onClick={() => void exportAsPdf()}>
-            <Download size={14} /> PDF
-          </button>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-foreground" onClick={() => void exportAsJpg()}>
-            <ImageIcon size={14} /> JPG
-          </button>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-foreground" onClick={shareWhatsApp}>
-            <Send size={14} /> WhatsApp
-          </button>
-          <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-foreground" onClick={shareMessenger}>
-            <Send size={14} /> Messenger
-          </button>
-        </div>
-        <button className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium text-foreground" onClick={() => void shareInvoice()}>
-          <Send size={14} /> Native Share
-        </button>
-      </Card>
-
       <div ref={invoiceCardRef} className="space-y-4 rounded-2xl bg-white p-1 dark:bg-[#10192a]">
         <Card className="space-y-3 border-border bg-panel">
           <h2 className="text-sm font-semibold text-foreground">Purchase Details</h2>
@@ -320,6 +299,27 @@ export function InvoiceDetailModule({ invoiceId }: { invoiceId: string }) {
       <Card className="border-border bg-panel text-xs text-muted">
         <p className="inline-flex items-center gap-2"><MapPin size={13} /> Billing and shipping data are editable for reconciliation and logistics accuracy.</p>
         <p className="mt-1 inline-flex items-center gap-2"><CreditCard size={13} /> Payment methods are synced from My Bank settings.</p>
+      </Card>
+
+      <Card className="space-y-2 border-border bg-panel">
+        <p className="text-xs font-medium text-muted">Export & Share</p>
+        <div className="grid grid-cols-5 gap-1.5">
+          <button className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background text-[11px] font-medium text-foreground" onClick={() => void exportAsPdf()}>
+            <Download size={12} /> PDF
+          </button>
+          <button className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background text-[11px] font-medium text-foreground" onClick={() => void exportAsJpg()}>
+            <ImageIcon size={12} /> JPG
+          </button>
+          <button className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background text-[11px] font-medium text-foreground" onClick={shareWhatsApp}>
+            <Send size={12} /> WA
+          </button>
+          <button className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background text-[11px] font-medium text-foreground" onClick={shareMessenger}>
+            <Send size={12} /> Msg
+          </button>
+          <button className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border bg-background text-[11px] font-medium text-foreground" onClick={() => void shareInvoice()}>
+            <Send size={12} /> Share
+          </button>
+        </div>
       </Card>
     </div>
   );

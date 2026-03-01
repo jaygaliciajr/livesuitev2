@@ -10,10 +10,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<Variant, string> = {
-  primary:
-    "bg-gradient-to-r from-primary to-accent/70 text-white shadow-[0_10px_28px_rgba(79,131,255,0.34)] active:scale-[0.99]",
+  primary: "bg-primary text-white shadow-[0_6px_16px_rgba(148,163,184,0.35)] active:scale-[0.99] hover:bg-primary/90",
   secondary: "glass-panel border border-border text-foreground",
-  danger: "bg-gradient-to-r from-rose-600 to-red-500 text-white",
+  danger: "bg-rose-600 text-white",
   ghost: "bg-transparent text-foreground hover:bg-panel/50",
 };
 

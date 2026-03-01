@@ -4,15 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  CircleUserRound,
-  Fingerprint,
-  KeyRound,
-  Menu,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { CircleUserRound, Fingerprint, KeyRound, Menu, Moon, Sun, Wallet } from "lucide-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 
 const pageTitleMap: Array<{ match: (path: string) => boolean; title: string }> = [
@@ -25,6 +17,7 @@ const pageTitleMap: Array<{ match: (path: string) => boolean; title: string }> =
   { match: (path) => path.startsWith("/my-banks"), title: "My Banks" },
   { match: (path) => path.startsWith("/subscription"), title: "Subscription" },
   { match: (path) => path.startsWith("/history"), title: "History" },
+  { match: (path) => path.startsWith("/expenses"), title: "Expenses Tracker" },
   { match: (path) => path.startsWith("/settings"), title: "Settings" },
   { match: () => true, title: "Dashboard" },
 ];
@@ -50,7 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setBiometricEnabled(biometrics);
 
     const theme = window.localStorage.getItem("ls-theme");
-    const dark = theme === "dark";
+    const dark = theme !== "light";
     setDarkModeEnabled(dark);
   }, []);
 
@@ -79,82 +72,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#6d86bb]/30 via-[#5f759f]/20 to-transparent" />
-
+    <div className="relative min-h-screen bg-background">
       <motion.aside
         initial={false}
-        animate={{ x: menuOpen ? 0 : -320, opacity: menuOpen ? 1 : 0.8 }}
-        transition={{ type: "spring", stiffness: 280, damping: 32 }}
-        className="fixed left-0 top-0 z-30 h-full w-[82%] max-w-[290px] rounded-r-[34px] border-r border-white/20 bg-gradient-to-b from-[#6f83ac] via-[#5c7098] to-[#4e638d] p-4 text-white shadow-[0_20px_45px_rgba(20,34,60,0.45)]"
+        animate={{ x: menuOpen ? 0 : -300 }}
+        transition={{ type: "spring", stiffness: 320, damping: 30 }}
+        className="fixed left-0 top-0 z-40 h-full w-[80%] max-w-[280px] border-r border-border bg-panel p-4 shadow-soft"
       >
-        <div className="mb-8 flex items-center gap-3 rounded-2xl bg-white/10 p-2.5">
-          <div className="h-10 w-10 overflow-hidden rounded-full border border-white/35 bg-white/20">
+        <div className="mb-8 flex items-center gap-3 rounded-2xl border border-border bg-background p-2.5">
+          <div className="h-10 w-10 overflow-hidden rounded-full border border-border bg-panel">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={profile.photo} alt={profile.name} className="h-full w-full object-cover" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{profile.name}</p>
-            <p className="text-xs text-white/75">{profile.role}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{profile.name}</p>
+            <p className="text-xs text-muted">{profile.role}</p>
           </div>
         </div>
 
         <nav className="space-y-2">
-          <Link href="/settings" className="flex items-center gap-3 rounded-xl bg-white/15 px-3 py-2.5 text-sm font-medium text-white">
+          <Link href="/settings" className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground">
             <CircleUserRound size={18} /> My Profile
           </Link>
 
+          <Link href="/expenses" className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground">
+            <Wallet size={18} /> Expenses Tracker
+          </Link>
+
           <button
-            className="flex w-full items-center justify-between rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90"
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground"
             onClick={toggleBiometrics}
           >
             <span className="inline-flex items-center gap-3">
               <Fingerprint size={18} /> Enable Biometrics
             </span>
-            <span className={`h-5 w-9 rounded-full p-0.5 transition ${biometricEnabled ? "bg-emerald-300" : "bg-white/30"}`}>
+            <span className={`h-5 w-9 rounded-full p-0.5 transition ${biometricEnabled ? "bg-emerald-400" : "bg-slate-300 dark:bg-slate-700"}`}>
               <span className={`block h-4 w-4 rounded-full bg-white transition ${biometricEnabled ? "translate-x-4" : ""}`} />
             </span>
           </button>
 
           <button
-            className="flex w-full items-center gap-3 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90"
+            className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground"
             onClick={onChangePassword}
           >
             <KeyRound size={18} /> Change Password
           </button>
 
           <button
-            className="flex w-full items-center justify-between rounded-xl bg-white/10 px-3 py-2.5 text-sm font-medium text-white/90"
+            className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-foreground"
             onClick={toggleDarkMode}
           >
             <span className="inline-flex items-center gap-3">
               {darkModeEnabled ? <Moon size={18} /> : <Sun size={18} />} Enable Dark Mode
             </span>
-            <span className={`h-5 w-9 rounded-full p-0.5 transition ${darkModeEnabled ? "bg-emerald-300" : "bg-white/30"}`}>
+            <span className={`h-5 w-9 rounded-full p-0.5 transition ${darkModeEnabled ? "bg-emerald-400" : "bg-slate-300 dark:bg-slate-700"}`}>
               <span className={`block h-4 w-4 rounded-full bg-white transition ${darkModeEnabled ? "translate-x-4" : ""}`} />
             </span>
           </button>
         </nav>
       </motion.aside>
 
-      {menuOpen ? <button className="fixed inset-0 z-20 bg-black/30" onClick={() => setMenuOpen(false)} aria-label="Close side menu" /> : null}
+      {menuOpen ? <button className="fixed inset-0 z-30 bg-black/30" onClick={() => setMenuOpen(false)} aria-label="Close side menu" /> : null}
 
-      <motion.div
-        initial={false}
-        animate={
-          menuOpen
-            ? {
-                x: 252,
-                scale: 0.9,
-                rotateY: -2,
-                borderRadius: 28,
-              }
-            : { x: 0, scale: 1, rotateY: 0, borderRadius: 0 }
-        }
-        transition={{ type: "spring", stiffness: 280, damping: 30 }}
-        style={{ transformOrigin: "left center" }}
-        className="relative z-40 min-h-screen bg-background"
-      >
+      <div className="relative z-20 min-h-screen bg-background">
         <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 px-3 py-2 backdrop-blur sm:px-4">
           <div className="mx-auto flex max-w-3xl items-center justify-between">
             <div className="flex items-center gap-2">
@@ -172,8 +152,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <button className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-panel text-muted">
-                <Bell size={16} />
+              <button
+                className="inline-flex h-9 items-center gap-1 rounded-lg border border-border bg-panel px-2.5 text-xs font-medium text-muted"
+                onClick={toggleDarkMode}
+              >
+                {darkModeEnabled ? <Moon size={14} /> : <Sun size={14} />}
+                {darkModeEnabled ? "Dark" : "Light"}
               </button>
               <span className="inline-flex items-center gap-1 rounded-full border border-border bg-panel px-2.5 py-1 text-xs font-medium text-muted">
                 <CircleUserRound size={13} /> {profile.role}
@@ -182,11 +166,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <div className="mx-auto min-h-[calc(100vh-56px)] max-w-3xl px-3 pb-28 pt-3 sm:px-4">
-          {children}
-        </div>
+        <div className="mx-auto min-h-[calc(100vh-56px)] max-w-3xl px-3 pb-28 pt-3 sm:px-4">{children}</div>
         <BottomNav />
-      </motion.div>
+      </div>
     </div>
   );
 }
