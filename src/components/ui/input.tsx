@@ -11,12 +11,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 ) {
   return (
     <label className="flex w-full flex-col gap-1.5 text-sm text-muted" htmlFor={id}>
-      {label ? <span>{label}</span> : null}
+      {label ? <span className="text-xs font-medium tracking-wide">{label}</span> : null}
       <input
         ref={ref}
         id={id}
         className={cn(
-          "h-11 rounded-xl border border-border bg-panel px-3 text-sm text-foreground outline-none ring-primary/25 transition focus:ring-4",
+          "glass-panel h-11 rounded-2xl border border-border/80 bg-panel/65 px-3 text-sm text-foreground outline-none ring-primary/20 transition focus:ring-4",
           className,
         )}
         {...props}

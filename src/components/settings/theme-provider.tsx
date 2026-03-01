@@ -13,7 +13,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
     const stored = window.localStorage.getItem("ls-theme") as Theme | null;
@@ -22,13 +22,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.dataset.theme = stored;
       return;
     }
-    document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.theme = "dark";
+    window.localStorage.setItem("ls-theme", "dark");
   }, []);
 
   const setTheme = (nextTheme: Theme) => {
     setThemeState(nextTheme);
+    document.documentElement.classList.add("theme-switching");
     document.documentElement.dataset.theme = nextTheme;
     window.localStorage.setItem("ls-theme", nextTheme);
+    window.setTimeout(() => document.documentElement.classList.remove("theme-switching"), 280);
   };
 
   const value = useMemo(

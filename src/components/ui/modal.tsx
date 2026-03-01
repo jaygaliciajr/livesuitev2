@@ -16,7 +16,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end bg-black/40 p-0 sm:items-center sm:justify-center sm:p-6"
+          className="fixed inset-0 z-50 flex items-end bg-black/45 p-0 sm:items-center sm:justify-center sm:p-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -24,7 +24,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         >
           <motion.div
             className={cn(
-              "w-full rounded-t-3xl border border-border bg-background p-4 shadow-soft sm:max-w-xl sm:rounded-2xl",
+              "glass-panel w-full rounded-t-3xl border border-border/70 bg-panel/90 p-4 shadow-soft sm:max-w-xl sm:rounded-3xl",
               className,
             )}
             initial={{ y: 30, opacity: 0 }}
@@ -34,8 +34,8 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-foreground">{title}</h3>
-              <button className="rounded-lg p-2 text-muted transition hover:bg-panel" onClick={onClose}>
+              <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
+              <button className="rounded-xl border border-border/70 bg-panel/60 p-2 text-muted transition hover:bg-panel" onClick={onClose}>
                 ✕
               </button>
             </div>

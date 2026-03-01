@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 type Tone = "default" | "success" | "warning" | "danger";
 
 const tones: Record<Tone, string> = {
-  default: "bg-primary/10 text-primary",
-  success: "bg-emerald-100 text-emerald-700",
-  warning: "bg-amber-100 text-amber-700",
-  danger: "bg-red-100 text-red-700",
+  default: "bg-primary/22 text-primary border border-primary/35",
+  success: "bg-emerald-500/16 text-emerald-300 border border-emerald-400/35",
+  warning: "bg-amber-500/16 text-amber-300 border border-amber-400/35",
+  danger: "bg-rose-500/16 text-rose-300 border border-rose-400/35",
 };
 
 export function Badge({ tone = "default", className, children }: { tone?: Tone; className?: string; children: React.ReactNode }) {

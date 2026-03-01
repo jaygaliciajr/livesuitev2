@@ -16,7 +16,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-4 z-40 px-3">
-      <div className="mx-auto flex max-w-sm items-center justify-between rounded-[24px] border border-border bg-panel/92 p-2 shadow-[0_18px_42px_rgba(14,35,79,0.18)] backdrop-blur-xl">
+      <div className="glass-panel mx-auto flex max-w-sm items-center justify-between rounded-[26px] border border-border/70 bg-panel/76 p-2 shadow-soft backdrop-blur-xl">
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -27,8 +27,8 @@ export function BottomNav() {
               className={cn(
                 "flex h-14 min-w-[96px] flex-col items-center justify-center rounded-2xl text-xs font-semibold transition",
                 active
-                  ? "bg-primary text-white shadow-[0_8px_20px_rgba(21,82,191,0.35)]"
-                  : "text-muted hover:bg-background hover:text-foreground",
+                  ? "premium-glow bg-gradient-to-r from-primary/92 to-accent/68 text-white"
+                  : "text-muted hover:bg-panel/55 hover:text-foreground",
               )}
             >
               <Icon size={18} />

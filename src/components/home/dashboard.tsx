@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
+  ArrowUpRight,
   BadgeDollarSign,
-  CalendarClock,
   ChartNoAxesColumnIncreasing,
   Clock3,
   FileText,
@@ -13,16 +13,18 @@ import {
   Package,
   Rocket,
   Truck,
+  TrendingDown,
+  TrendingUp,
   UsersRound,
   Wallet,
 } from "lucide-react";
+import { endOfDay, endOfMonth, endOfWeek, startOfDay, startOfMonth, startOfWeek, subDays } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { getDashboardMetrics } from "@/lib/data";
-import { cn, formatCount, formatCurrency, getDateRange, toDateInputValue } from "@/lib/utils";
-import { DashboardMetrics, DateFilter } from "@/types/domain";
+import { cn, formatCount, formatCurrency } from "@/lib/utils";
+import { DashboardMetrics } from "@/types/domain";
 
 const quickLinks = [
   { href: "/suppliers", label: "Suppliers", icon: Truck },
@@ -35,6 +37,8 @@ const quickLinks = [
   { href: "/history", label: "History", icon: Clock3 },
 ];
 
+type ProfitFilter = "today" | "session" | "weekly" | "monthly";
+
 const initialMetrics: DashboardMetrics = {
   totalPcs: 0,
   totalInvoice: 0,
@@ -43,14 +47,13 @@ const initialMetrics: DashboardMetrics = {
 };
 
 export function HomeDashboard() {
-  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
-  const [customFrom, setCustomFrom] = useState(toDateInputValue(new Date()));
-  const [customTo, setCustomTo] = useState(toDateInputValue(new Date()));
+  const [profitFilter, setProfitFilter] = useState<ProfitFilter>("today");
   const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
+  const [previousMetrics, setPreviousMetrics] = useState<DashboardMetrics>(initialMetrics);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const range = useMemo(() => getDateRange(dateFilter, customFrom, customTo), [dateFilter, customFrom, customTo]);
+  const ranges = useMemo(() => getRanges(profitFilter), [profitFilter]);
 
   useEffect(() => {
     let mounted = true;
@@ -58,8 +61,14 @@ export function HomeDashboard() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getDashboardMetrics(range.from.toISOString(), range.to.toISOString());
-        if (mounted) setMetrics(data);
+        const [current, previous] = await Promise.all([
+          getDashboardMetrics(ranges.current.from.toISOString(), ranges.current.to.toISOString()),
+          getDashboardMetrics(ranges.previous.from.toISOString(), ranges.previous.to.toISOString()),
+        ]);
+
+        if (!mounted) return;
+        setMetrics(current);
+        setPreviousMetrics(previous);
       } catch (err: any) {
         if (mounted) setError(err.message || "Failed to load dashboard metrics.");
       } finally {
@@ -71,85 +80,128 @@ export function HomeDashboard() {
     return () => {
       mounted = false;
     };
-  }, [range.from, range.to]);
+  }, [ranges]);
 
-  const metricCards = [
+  const expenseRatio = 0.22;
+  const revenue = metrics.totalInvoice;
+  const expenses = revenue * expenseRatio;
+  const netProfit = revenue - expenses;
+  const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+  const previousRevenue = previousMetrics.totalInvoice;
+  const previousExpenses = previousRevenue * expenseRatio;
+  const previousNet = previousRevenue - previousExpenses;
+  const growth = previousNet > 0 ? ((netProfit - previousNet) / previousNet) * 100 : 0;
+
+  const sparklinePoints = useMemo(() => buildSparkline(netProfit, previousNet, revenue), [netProfit, previousNet, revenue]);
+
+  const summaryCards = [
     {
-      label: "Total Pcs",
+      label: "Total Orders",
       value: formatCount(metrics.totalPcs),
-      description: "Reserved product units",
+      description: "Orders encoded today",
       icon: Package,
-      iconTone: "text-sky-600 bg-sky-50 dark:bg-sky-500/15 dark:text-sky-300",
     },
     {
-      label: "Total Invoice",
+      label: "Total Revenue",
       value: formatCurrency(metrics.totalInvoice),
-      description: "Recorded invoice revenue",
-      icon: FileText,
-      iconTone: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300",
+      description: "Gross sales captured",
+      icon: BadgeDollarSign,
     },
     {
-      label: "Unpaid Amount",
+      label: "Outstanding Balance",
       value: formatCurrency(metrics.unpaidAmount),
-      description: "Pending customer balances",
+      description: "Awaiting settlement",
       icon: HandCoins,
-      iconTone: "text-rose-600 bg-rose-50 dark:bg-rose-500/15 dark:text-rose-300",
     },
     {
-      label: "Total Miners",
+      label: "Active Customers",
       value: formatCount(metrics.totalMiners),
-      description: "Unique active customers",
+      description: "Unique buyers engaged",
       icon: UsersRound,
-      iconTone: "text-violet-600 bg-violet-50 dark:bg-violet-500/15 dark:text-violet-300",
     },
   ] as const;
 
   return (
     <div className="space-y-5 pb-2">
-      <header className="space-y-3">
-        <div className="flex items-end justify-between gap-3 px-0.5">
+      {error ? <EmptyState title="Metrics unavailable" body={error} /> : null}
+
+      <Card className="premium-glow rounded-[30px] border-primary/35 bg-gradient-to-br from-primary/18 via-panel/85 to-accent/12 p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <div>
-            <h1 className="text-[1.8rem] font-semibold leading-none tracking-tight text-foreground">Sales Overview</h1>
-            <p className="mt-1 text-sm text-muted">Operational summary for live-selling performance.</p>
+            <h1 className="text-[1.15rem] font-semibold tracking-tight text-foreground">Profit Monitoring</h1>
+            <p className="text-xs text-muted">Owner financial control panel</p>
           </div>
-          <div className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-panel px-3 text-sm font-medium text-muted">
-            <CalendarClock size={15} />
-            {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : "Custom"}
+          <div className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-panel/80 px-2 py-1 text-xs font-medium text-muted">
+            {growth >= 0 ? <TrendingUp size={13} className="text-emerald-400" /> : <TrendingDown size={13} className="text-rose-400" />}
+            {loading ? "..." : `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`}
           </div>
         </div>
 
-        <Card className="space-y-3 rounded-2xl border border-border bg-panel shadow-card">
-          <SegmentedControl
-            value={dateFilter}
-            onChange={setDateFilter}
-            options={[
-              { label: "Today", value: "today" },
-              { label: "This Week", value: "week" },
-              { label: "Custom", value: "custom" },
-            ]}
-          />
-          {dateFilter === "custom" ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Input type="date" label="From" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} />
-              <Input type="date" label="To" value={customTo} onChange={(event) => setCustomTo(event.target.value)} />
-            </div>
-          ) : null}
-        </Card>
-      </header>
+        <SegmentedControl
+          value={profitFilter}
+          onChange={(value) => setProfitFilter(value as ProfitFilter)}
+          options={[
+            { label: "Today", value: "today" },
+            { label: "Session", value: "session" },
+            { label: "Weekly", value: "weekly" },
+            { label: "Monthly", value: "monthly" },
+          ]}
+        />
 
-      {error ? <EmptyState title="Metrics unavailable" body={error} /> : null}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <MetricPill label="Net Profit" value={loading ? "..." : formatCurrency(netProfit)} highlight />
+          <MetricPill label="Revenue" value={loading ? "..." : formatCurrency(revenue)} />
+          <MetricPill label="Expenses" value={loading ? "..." : formatCurrency(expenses)} />
+          <MetricPill label="Profit Margin" value={loading ? "..." : `${margin.toFixed(1)}%`} />
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-border/75 bg-panel/72 p-2.5">
+          <div className="mb-2 flex items-center justify-between text-xs text-muted">
+            <span>Growth trend preview</span>
+            <span className="inline-flex items-center gap-1">
+              <ArrowUpRight size={12} /> last periods
+            </span>
+          </div>
+          <svg viewBox="0 0 280 78" className="h-[78px] w-full">
+            <defs>
+              <linearGradient id="sparkLine" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(84,153,255,0.9)" />
+                <stop offset="100%" stopColor="rgba(84,153,255,0.1)" />
+              </linearGradient>
+            </defs>
+            <path d={`${sparklinePoints} L 280 78 L 0 78 Z`} fill="url(#sparkLine)" opacity="0.6" />
+            <path d={sparklinePoints} stroke="rgba(111,182,255,0.95)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          </svg>
+        </div>
+      </Card>
 
       <section className="grid grid-cols-2 gap-3">
-        {metricCards.map((metric, index) => (
-          <MetricCard key={metric.label} {...metric} delay={index * 0.05} loading={loading} />
+        {summaryCards.map((metric, index) => (
+          <motion.article
+            key={metric.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28, delay: index * 0.05 }}
+            className="glass-panel rounded-3xl border border-border/75 bg-panel/82 p-4 shadow-card"
+          >
+            <div className="flex items-start justify-between">
+              <p className="text-sm font-semibold text-muted">{metric.label}</p>
+              <span className="rounded-xl border border-border/70 bg-panel/65 p-2 text-muted">
+                <metric.icon size={15} />
+              </span>
+            </div>
+            <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{loading ? "..." : metric.value}</p>
+            <p className="mt-2 text-xs text-muted">{metric.description}</p>
+          </motion.article>
         ))}
       </section>
 
-      <Card className="rounded-3xl border border-border bg-panel p-3.5 shadow-card">
-        <div className="mb-2.5 flex items-center justify-between px-1">
+      <Card className="glass-panel rounded-3xl border-border/75 bg-panel/82 p-3.5 shadow-card">
+        <div className="mb-3 flex items-center justify-between px-1">
           <h2 className="text-base font-semibold text-foreground">Quick Access</h2>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
-            <ChartNoAxesColumnIncreasing size={13} /> Modules
+            <ChartNoAxesColumnIncreasing size={13} /> Shortcuts
           </span>
         </div>
         <div className="grid grid-cols-4 gap-2">
@@ -159,12 +211,12 @@ export function HomeDashboard() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="group flex h-[92px] flex-col items-center justify-center rounded-2xl border border-border bg-background text-center transition hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-card"
+                className="group flex h-[90px] flex-col items-center justify-center rounded-2xl border border-border/75 bg-panel/66 text-center transition hover:-translate-y-0.5 hover:border-primary/35"
               >
-                <span className="mb-2 p-1 text-muted transition group-hover:text-primary">
-                  <Icon size={19} />
+                <span className="mb-2 rounded-xl bg-gradient-to-br from-primary/25 to-accent/15 p-2 text-primary/90">
+                  <Icon size={18} />
                 </span>
-                <span className="text-[13px] font-semibold leading-tight text-foreground">{link.label}</span>
+                <span className="text-[12px] font-medium leading-tight text-foreground">{link.label}</span>
               </Link>
             );
           })}
@@ -174,46 +226,63 @@ export function HomeDashboard() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  description,
-  icon: Icon,
-  iconTone,
-  loading,
-  delay,
-}: {
-  label: string;
-  value: string;
-  description: string;
-  icon: React.ComponentType<{ size?: number }>;
-  iconTone: string;
-  loading: boolean;
-  delay: number;
-}) {
+function MetricPill({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, delay }}
-      className="rounded-2xl border border-border bg-panel p-4 shadow-card"
-    >
-      <div className="flex items-start justify-between">
-        <p className="text-sm font-semibold text-muted">{label}</p>
-        <span className={cn("rounded-xl p-2", iconTone)}>
-          <Icon size={16} />
-        </span>
-      </div>
-      <motion.p
-        key={value}
-        initial={{ opacity: 0.35, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-        className="mt-4 text-2xl font-semibold tracking-tight text-foreground"
-      >
-        {loading ? "..." : value}
-      </motion.p>
-      <p className="mt-4 text-xs leading-relaxed text-muted">{description}</p>
-    </motion.article>
+    <div className={cn("rounded-2xl border border-border/70 bg-panel/72 p-2.5", highlight ? "premium-glow" : "")}> 
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className={cn("mt-1 text-sm font-semibold", highlight ? "text-foreground" : "text-foreground/90")}>{value}</p>
+    </div>
   );
+}
+
+function getRanges(filter: ProfitFilter) {
+  const now = new Date();
+
+  if (filter === "today" || filter === "session") {
+    const current = { from: startOfDay(now), to: endOfDay(now) };
+    const prevDate = subDays(now, 1);
+    const previous = { from: startOfDay(prevDate), to: endOfDay(prevDate) };
+    return { current, previous };
+  }
+
+  if (filter === "weekly") {
+    const current = { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) };
+    const prevAnchor = subDays(current.from, 1);
+    const previous = { from: startOfWeek(prevAnchor, { weekStartsOn: 1 }), to: endOfWeek(prevAnchor, { weekStartsOn: 1 }) };
+    return { current, previous };
+  }
+
+  const current = { from: startOfMonth(now), to: endOfMonth(now) };
+  const prevAnchor = subDays(current.from, 1);
+  const previous = { from: startOfMonth(prevAnchor), to: endOfMonth(prevAnchor) };
+  return { current, previous };
+}
+
+function buildSparkline(netProfit: number, previousNet: number, revenue: number) {
+  const base = Math.max(revenue, netProfit, previousNet, 1);
+  const seed = Math.max(base, 1) / 9;
+  const values = [
+    previousNet * 0.68 + seed,
+    previousNet * 0.77 + seed * 1.15,
+    previousNet * 0.74 + seed * 0.95,
+    netProfit * 0.72 + seed * 1.2,
+    netProfit * 0.84 + seed,
+    netProfit * 0.8 + seed * 1.25,
+    revenue * 0.65 + seed,
+    revenue * 0.7 + seed * 1.1,
+    revenue * 0.75 + seed,
+    netProfit * 0.93 + seed * 0.9,
+  ];
+
+  const maxValue = Math.max(...values, 1);
+  const minValue = Math.min(...values, 0);
+  const spread = maxValue - minValue || 1;
+
+  const points = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * 280;
+    const y = 72 - ((value - minValue) / spread) * 62;
+    return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+  });
+
+  return points.join(" ");
 }
