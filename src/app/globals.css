@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f3f7fc;
+  --panel: #ffffff;
+  --fg: #102a43;
+  --muted: #627d98;
+  --border: #dce7f3;
+  --primary: #0c4aa5;
+  --accent: #5ad5f8;
+  --danger: #cc3344;
+  --warning: #f2a218;
+}
+
+:root[data-theme="dark"] {
+  --bg: #08111f;
+  --panel: #0f1f33;
+  --fg: #e5edf7;
+  --muted: #9cb2cd;
+  --border: #223857;
+  --primary: #4b8cff;
+  --accent: #6de1ff;
+  --danger: #ff6473;
+  --warning: #ffd65c;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-panel: var(--panel);
+  --color-foreground: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-sora);
+  --shadow-soft: 0 16px 40px rgba(12, 74, 165, 0.18);
+  --shadow-card: 0 8px 24px rgba(6, 26, 54, 0.08);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(90, 213, 248, 0.22), transparent 42%),
+    radial-gradient(circle at 85% 20%, rgba(12, 74, 165, 0.16), transparent 44%),
+    var(--bg);
+  color: var(--fg);
+  font-family: var(--font-manrope), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-sora), sans-serif;
 }

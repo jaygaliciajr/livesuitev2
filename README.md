@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Live Selling Fast Encoding
 
-## Getting Started
+Mobile-first responsive app for fast live selling encoding (encoder workflow): supplier selection, product activation, miner entry, order list edits, session summary, and draft invoice generation.
 
-First, run the development server:
+## Stack
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Supabase (database)
+- Framer Motion (micro-interactions)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Quick Start
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Copy env file:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Fill `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. In Supabase SQL editor, run:
+   - `supabase/schema.sql`
+   - `supabase/seed.sql` (optional sample data)
+5. Run the app:
+   ```bash
+   npm run dev
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Main Routes
+- `/` Home dashboard (date filters + KPI cards + quick access)
+- `/live` Live speed mode (supplier -> active product -> add miner -> order list -> end live)
+- `/settings` Store settings, theme, low-stock threshold, CSV exports
+- `/suppliers`, `/inventory`, `/customers`, `/invoices`, `/payments`, `/my-banks`, `/subscription`, `/history`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## SQL Notes
+Schema includes:
+- Core tables: suppliers, products, customers, live_sessions, session_orders, session_order_lines, invoices, payments
+- Indexes for frequent lookups (`supplier_id`, `product_code`, `session_id`, `customer_id`, invoice/payment relations)
+- RPC functions for stock-safe live workflow:
+  - `add_miner_line`
+  - `update_miner_line_qty`
+  - `delete_miner_line`
+  - `generate_draft_invoices`
+- Triggered invoice status sync on payment insert
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Acceptance Scenario Coverage
+1. Live flow stock safety and sold-out blocking:
+   - Implemented via RPC stock checks and product state updates.
+2. End session summary + draft invoices per customer:
+   - Summary modal + `generate_draft_invoices`.
+3. Dashboard date filters:
+   - KPI metrics computed from session lines + invoices in selected range.
+4. Order list grouped views + edit/remove with stock re-adjustment:
+   - Group toggle (customer/product) + RPC edit/remove with stock correction.
