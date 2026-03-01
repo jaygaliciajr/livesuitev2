@@ -222,12 +222,12 @@ function getInvoiceUiStatus(item: InvoiceListItem, dueDate?: string, submitted?:
 
 function StatusBadge({ status }: { status: UiStatus }) {
   const palette: Record<UiStatus, string> = {
-    New: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
-    Paid: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
-    Unpaid: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
-    Partial: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
-    Overdue: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-200",
-    Submitted: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200",
+    New: "border border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-400/35 dark:bg-sky-500/20 dark:text-sky-200",
+    Paid: "border border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-400/35 dark:bg-emerald-500/20 dark:text-emerald-200",
+    Unpaid: "border border-rose-300 bg-rose-100 text-rose-800 dark:border-rose-400/35 dark:bg-rose-500/20 dark:text-rose-200",
+    Partial: "border border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/20 dark:text-amber-200",
+    Overdue: "border border-red-300 bg-red-100 text-red-800 dark:border-red-400/35 dark:bg-red-500/20 dark:text-red-200",
+    Submitted: "border border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-400/35 dark:bg-violet-500/20 dark:text-violet-200",
   };
 
   return <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${palette[status]}`}>{status}</span>;
