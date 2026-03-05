@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarRange, CircleDollarSign, Coins, CreditCard, ReceiptText } from "lucide-react";
+import { CalendarRange, CircleDollarSign, Coins, CreditCard, UsersRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { listInvoicesWithFilters, listSuppliers } from "@/lib/data";
-import { formatCurrency, toDateInputValue } from "@/lib/utils";
+import { formatCount, formatCurrency, toDateInputValue } from "@/lib/utils";
 import { InvoiceListItem, Supplier } from "@/types/domain";
 
 const SUBMITTED_STORAGE = "ls-invoice-submitted";
@@ -72,8 +72,13 @@ export function InvoicesModule() {
     const totalSales = items.reduce((sum, item) => sum + item.total_amount, 0);
     const paidAmount = items.reduce((sum, item) => sum + item.paid_amount, 0);
     const unpaidAmount = items.reduce((sum, item) => sum + Math.max(item.total_amount - item.paid_amount, 0), 0);
-    const totalOutstanding = unpaidAmount;
-    return { totalSales, paidAmount, unpaidAmount, totalOutstanding };
+    const unpaidByCustomer = new Map<string, number>();
+    items.forEach((item) => {
+      const current = unpaidByCustomer.get(item.customer_id) ?? 0;
+      unpaidByCustomer.set(item.customer_id, current + Math.max(item.total_amount - item.paid_amount, 0));
+    });
+    const unpaidCustomers = [...unpaidByCustomer.values()].filter((balance) => balance > 0).length;
+    return { totalSales, paidAmount, unpaidAmount, unpaidCustomers };
   }, [items]);
 
   const filteredItems = useMemo(() => {
@@ -98,7 +103,7 @@ export function InvoicesModule() {
         <SummaryCard icon={CircleDollarSign} label="Total Sales" value={formatCurrency(summary.totalSales)} description="Gross invoice value" />
         <SummaryCard icon={Coins} label="Paid Amount" value={formatCurrency(summary.paidAmount)} description="Confirmed collections" />
         <SummaryCard icon={CreditCard} label="Unpaid Amount" value={formatCurrency(summary.unpaidAmount)} description="Pending receivables" />
-        <SummaryCard icon={ReceiptText} label="Outstanding" value={formatCurrency(summary.totalOutstanding)} description="Open invoice balance" />
+        <SummaryCard icon={UsersRound} label="Unpaid Customers" value={formatCount(summary.unpaidCustomers)} description="Customers with balance" />
       </section>
 
       <Card className="space-y-3">
