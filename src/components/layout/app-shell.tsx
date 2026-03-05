@@ -162,19 +162,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </header>
 
-          <AnimatePresence mode="wait">
-            <motion.main
-              key={pathname}
-              initial={pageTransition.initial}
-              animate={pageTransition.animate}
-              exit={pageTransition.exit}
-              transition={pageTransition.transition}
-              className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-3 pb-28 pt-4 sm:px-4 lg:px-6"
-              style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 7rem)" }}
-            >
-              {children}
-            </motion.main>
-          </AnimatePresence>
+          <motion.main
+            initial={false}
+            animate={pageTransition.animate}
+            transition={pageTransition.transition}
+            className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-3 pb-28 pt-4 sm:px-4 lg:px-6"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 7rem)" }}
+          >
+            {children}
+          </motion.main>
 
           <BottomNav />
         </div>
