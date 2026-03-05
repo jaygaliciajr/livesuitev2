@@ -438,6 +438,21 @@ export async function addPayment(payload: { invoice_id: string; amount: number; 
   return data as Payment;
 }
 
+export async function listInvoiceAmountsInRange(fromIso: string, toIso: string) {
+  guardSupabase();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("created_at, total_amount")
+    .gte("created_at", fromIso)
+    .lte("created_at", toIso)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((item: any) => ({
+    created_at: item.created_at as string,
+    total_amount: Number(item.total_amount || 0),
+  }));
+}
+
 export async function getDashboardMetrics(fromIso: string, toIso: string): Promise<DashboardMetrics> {
   guardSupabase();
   const [{ data: linesData, error: linesError }, { data: invoicesData, error: invoicesError }] = await Promise.all([

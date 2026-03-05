@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { CircleUserRound, Fingerprint, KeyRound, Loader2, Menu, Moon, Sun, Wallet, X } from "lucide-react";
+import { CircleUserRound, Fingerprint, KeyRound, Loader2, LogOut, Menu, Moon, Wallet, X } from "lucide-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useTheme } from "@/components/settings/theme-provider";
-import { drawerMotion, pageTransition, tapFeedback } from "@/lib/motion";
+import { drawerMotion, pageTransition, springSoft, tapFeedback } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 const pageTitleMap: Array<{ match: (path: string) => boolean; title: string; subtitle: string }> = [
@@ -168,7 +168,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {menuOpen ? (
             <>
               <motion.button
-                className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] lg:hidden"
+                className="fixed inset-0 z-40 bg-black/28 backdrop-blur-[1px] lg:hidden"
                 onClick={() => setMenuOpen(false)}
                 aria-label="Close side menu"
                 initial={drawerMotion.overlay.initial}
@@ -177,7 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 transition={drawerMotion.overlay.transition}
               />
               <motion.aside
-                className="surface-elevated fixed left-0 top-0 z-50 h-full w-[84%] max-w-[292px] border-r border-border/80 p-4 lg:hidden"
+                className="fixed left-0 top-0 z-50 h-full w-[86%] max-w-[320px] p-3 lg:hidden"
                 style={{
                   paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
                   paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
@@ -187,29 +187,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 exit={drawerMotion.panel.exit}
                 transition={drawerMotion.panel.transition}
               >
-                <div className="mb-4 flex justify-end">
-                  <button
-                    className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/75 bg-panel-2/70 text-muted"
-                    onClick={() => setMenuOpen(false)}
-                    aria-label="Close menu"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-                <SidebarContent
+                <MobileSidebarContent
                   profile={profile}
                   biometricEnabled={biometricEnabled}
                   onToggleBiometrics={toggleBiometrics}
                   onToggleTheme={toggleTheme}
                   onChangePassword={onChangePassword}
                   darkModeEnabled={theme === "dark"}
+                  onClose={() => setMenuOpen(false)}
                 />
               </motion.aside>
             </>
           ) : null}
         </AnimatePresence>
 
-        <div className="min-w-0">
+        <motion.div
+          className={cn(
+            "relative min-w-0 bg-background transition-shadow",
+            menuOpen ? "overflow-hidden shadow-[0_28px_72px_rgba(4,12,26,0.68)]" : "",
+          )}
+          animate={
+            menuOpen
+              ? {
+                  x: 136,
+                  y: 4,
+                  scale: 0.88,
+                  borderRadius: 34,
+                }
+              : {
+                  x: 0,
+                  y: 0,
+                  scale: 1,
+                  borderRadius: 0,
+                }
+          }
+          transition={springSoft}
+          style={{ transformOrigin: "left center" }}
+        >
           <AnimatePresence>
             {pullDistance > 0 || isRefreshing ? (
               <motion.div
@@ -231,8 +245,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="sticky top-0 z-30 border-b border-border/80 bg-background/92 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6"
             style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
           >
-            <div className="mx-auto flex max-w-6xl items-center justify-between">
-              <div className="flex items-center gap-2.5">
+            <div className="surface-elevated mx-auto flex max-w-6xl items-center justify-between rounded-[18px] border border-border/70 px-3 py-2.5 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <motion.button
                   {...tapFeedback}
                   className="focus-ring inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-border/80 bg-panel-2/70 text-foreground lg:hidden"
@@ -241,25 +255,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   <Menu size={18} />
                 </motion.button>
-                <div>
-                  <p className="text-base font-semibold text-foreground">{pageMeta.title}</p>
-                  <p className="text-xs text-muted">{pageMeta.subtitle}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-semibold text-foreground">{pageMeta.title}</p>
+                  <p className="hidden truncate text-xs text-muted sm:block">{pageMeta.subtitle}</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <motion.button
-                  {...tapFeedback}
-                  className="focus-ring inline-flex h-11 items-center gap-1 rounded-[14px] border border-border/80 bg-panel-2/75 px-3 text-xs font-medium text-muted"
-                  onClick={toggleTheme}
-                  aria-label="Toggle theme"
-                >
-                  {theme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
-                  {theme === "dark" ? "Dark" : "Light"}
-                </motion.button>
-                <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-panel-2/75 px-2.5 py-1 text-xs font-medium text-foreground-soft">
-                  <CircleUserRound size={13} /> {profile.role}
-                </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-panel-2/75 p-1 pr-2.5">
+                  <div className="h-9 w-9 overflow-hidden rounded-full border border-border bg-panel-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={profile.photo} alt={profile.name} className="h-full w-full object-cover" />
+                  </div>
+                  <span className="inline-flex items-center rounded-full border border-primary/35 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-primary">
+                    {profile.role}
+                  </span>
+                </div>
               </div>
             </div>
           </header>
@@ -279,9 +290,137 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </motion.main>
 
           <BottomNav />
-        </div>
+        </motion.div>
       </div>
     </div>
+  );
+}
+
+function MobileSidebarContent({
+  profile,
+  biometricEnabled,
+  darkModeEnabled,
+  onToggleBiometrics,
+  onToggleTheme,
+  onChangePassword,
+  onClose,
+}: {
+  profile: { name: string; role: string; photo: string };
+  biometricEnabled: boolean;
+  darkModeEnabled: boolean;
+  onToggleBiometrics: () => void;
+  onToggleTheme: () => void;
+  onChangePassword: () => void;
+  onClose: () => void;
+}) {
+  const firstName = profile.name.trim().split(/\s+/)[0] || "User";
+
+  function onSignOut() {
+    window.alert("Sign out flow will be connected to your auth provider.");
+  }
+
+  return (
+    <div className="relative flex h-full flex-col overflow-hidden rounded-[30px] border border-primary/20 bg-gradient-to-b from-panel-3/95 via-panel/96 to-background/96 p-4 shadow-[0_24px_54px_rgba(9,20,38,0.46)]">
+      <div className="pointer-events-none absolute -left-14 -top-12 h-48 w-48 rounded-full bg-primary/24 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-16 -right-12 h-44 w-44 rounded-full bg-accent/18 blur-3xl" />
+
+      <div className="relative z-10 mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 overflow-hidden rounded-full border border-border/80 bg-panel-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={profile.photo} alt={profile.name} className="h-full w-full object-cover" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{firstName}</p>
+            <p className="text-xs text-muted">{profile.role}</p>
+          </div>
+        </div>
+        <button
+          className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/80 bg-panel-2/65 text-muted"
+          onClick={onClose}
+          aria-label="Close menu"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <nav className="relative z-10 space-y-1.5">
+        <MobileMenuLink href="/settings" label="My Profile" icon={CircleUserRound} onClose={onClose} />
+        <MobileMenuLink href="/expenses" label="Expenses Tracker" icon={Wallet} onClose={onClose} />
+        <MobileMenuAction
+          label="Enable Biometrics"
+          icon={Fingerprint}
+          value={biometricEnabled ? "On" : "Off"}
+          onClick={onToggleBiometrics}
+        />
+        <MobileMenuAction label="Change Password" icon={KeyRound} onClick={onChangePassword} />
+        <MobileMenuAction
+          label="Enable Dark Mode"
+          icon={Moon}
+          value={darkModeEnabled ? "On" : "Off"}
+          onClick={onToggleTheme}
+        />
+      </nav>
+
+      <button
+        className="focus-ring relative z-10 mt-auto inline-flex h-11 items-center gap-3 rounded-2xl border border-border/70 bg-panel-2/65 px-3 text-sm font-medium text-foreground"
+        onClick={onSignOut}
+      >
+        <LogOut size={16} /> Sign Out
+      </button>
+    </div>
+  );
+}
+
+function MobileMenuLink({
+  href,
+  label,
+  icon: Icon,
+  onClose,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  onClose: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClose}
+      className="focus-ring flex h-11 items-center gap-3 rounded-2xl px-3 text-sm font-medium text-foreground hover:bg-panel-2/55"
+    >
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-panel-2/70 text-muted">
+        <Icon size={15} />
+      </span>
+      {label}
+    </Link>
+  );
+}
+
+function MobileMenuAction({
+  label,
+  icon: Icon,
+  value,
+  onClick,
+}: {
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  value?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="focus-ring flex h-11 w-full items-center justify-between rounded-2xl px-3 text-sm font-medium text-foreground hover:bg-panel-2/55"
+      onClick={onClick}
+    >
+      <span className="inline-flex items-center gap-3">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-panel-2/70 text-muted">
+          <Icon size={15} />
+        </span>
+        {label}
+      </span>
+      {value ? <span className="text-xs font-semibold text-primary">{value}</span> : null}
+    </button>
   );
 }
 

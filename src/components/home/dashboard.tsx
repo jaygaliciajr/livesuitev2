@@ -17,14 +17,32 @@ import {
   Wallet,
 } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { endOfDay, endOfMonth, endOfWeek, startOfDay, startOfMonth, startOfWeek, subDays } from "date-fns";
+import {
+  addDays,
+  addHours,
+  addMonths,
+  addWeeks,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  getISOWeek,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subWeeks,
+  subYears,
+} from "date-fns";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { KPIStat } from "@/components/ui/kpi-stat";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDashboardMetrics } from "@/lib/data";
+import { getDashboardMetrics, listInvoiceAmountsInRange } from "@/lib/data";
 import { listContainer, listItem, tapFeedback } from "@/lib/motion";
 import { formatCount, formatCurrency } from "@/lib/utils";
 import { DashboardMetrics } from "@/types/domain";
@@ -40,7 +58,9 @@ const quickLinks = [
   { href: "/history", label: "History", icon: Clock3 },
 ];
 
-type ProfitFilter = "today" | "session" | "weekly" | "monthly";
+type ProfitFilter = "today" | "weekly" | "monthly" | "yearly";
+type ExpenseEntry = { date: string; amount: number };
+type InvoiceTrendPoint = { created_at: string; total_amount: number };
 
 const initialMetrics: DashboardMetrics = {
   totalPcs: 0,
@@ -55,6 +75,8 @@ export function HomeDashboard() {
   const [previousMetrics, setPreviousMetrics] = useState<DashboardMetrics>(initialMetrics);
   const [expenseCurrent, setExpenseCurrent] = useState(0);
   const [expensePrevious, setExpensePrevious] = useState(0);
+  const [expenseEntries, setExpenseEntries] = useState<ExpenseEntry[]>([]);
+  const [invoiceTrendPoints, setInvoiceTrendPoints] = useState<InvoiceTrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const chartHostRef = useRef<HTMLDivElement | null>(null);
@@ -68,16 +90,19 @@ export function HomeDashboard() {
       setLoading(true);
       setError(null);
       try {
-        const [current, previous] = await Promise.all([
+        const [current, previous, invoiceTrend] = await Promise.all([
           getDashboardMetrics(ranges.current.from.toISOString(), ranges.current.to.toISOString()),
           getDashboardMetrics(ranges.previous.from.toISOString(), ranges.previous.to.toISOString()),
+          listInvoiceAmountsInRange(ranges.current.from.toISOString(), ranges.current.to.toISOString()),
         ]);
 
         if (!mounted) return;
         setMetrics(current);
         setPreviousMetrics(previous);
         const expensesRaw = window.localStorage.getItem("ls-expenses");
-        const expenses = expensesRaw ? (JSON.parse(expensesRaw) as Array<{ date: string; amount: number }>) : [];
+        const expenses = expensesRaw ? (JSON.parse(expensesRaw) as ExpenseEntry[]) : [];
+        setInvoiceTrendPoints(invoiceTrend);
+        setExpenseEntries(expenses);
         setExpenseCurrent(sumExpensesForRange(expenses, ranges.current.from, ranges.current.to));
         setExpensePrevious(sumExpensesForRange(expenses, ranges.previous.from, ranges.previous.to));
       } catch (err: any) {
@@ -119,7 +144,16 @@ export function HomeDashboard() {
   const previousNet = previousRevenue - previousExpenses;
   const growth = previousNet > 0 ? ((netProfit - previousNet) / previousNet) * 100 : 0;
 
-  const trendSeries = useMemo(() => buildTrendSeries(netProfit, previousNet, revenue, expenses), [netProfit, previousNet, revenue, expenses]);
+  const trendSeries = useMemo(
+    () =>
+      buildTrendSeries({
+        filter: profitFilter,
+        from: ranges.current.from,
+        invoices: invoiceTrendPoints,
+        expenses: expenseEntries,
+      }),
+    [expenseEntries, invoiceTrendPoints, profitFilter, ranges],
+  );
 
   return (
     <div className="space-y-5 pb-2">
@@ -128,24 +162,27 @@ export function HomeDashboard() {
       {error ? <EmptyState title="Metrics unavailable" body={error} /> : null}
 
       <Card variant="elevated" className="overflow-hidden rounded-[18px] border-primary/25">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/85">Profit Monitoring</p>
-            <h2 className="mt-1 text-2xl font-semibold text-foreground">Net {loading ? "..." : formatCurrency(netProfit)}</h2>
-            <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted">
+        <div className="mb-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/85">Profit Monitoring</p>
+              <h2 className="mt-1 text-2xl font-semibold text-foreground">Net {loading ? "..." : formatCurrency(netProfit)}</h2>
+            </div>
+            <div className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/70 bg-panel-2/70 px-2.5 py-1 text-xs font-semibold text-foreground">
               <ArrowUpRight size={12} className={growth >= 0 ? "text-success" : "text-danger"} />
-              {loading ? "..." : `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`} vs previous period
-            </p>
+              {loading ? "..." : `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`}
+              <span className="hidden text-muted sm:inline">vs previous period</span>
+            </div>
           </div>
-          <div className="w-full max-w-[360px]">
+          <div className="w-full max-w-[420px]">
             <SegmentedControl
               value={profitFilter}
               onChange={(value) => setProfitFilter(value as ProfitFilter)}
               options={[
                 { label: "Today", value: "today" },
-                { label: "Session", value: "session" },
                 { label: "Weekly", value: "weekly" },
                 { label: "Monthly", value: "monthly" },
+                { label: "Yearly", value: "yearly" },
               ]}
             />
           </div>
@@ -179,7 +216,7 @@ export function HomeDashboard() {
                     axisLine={false}
                     width={44}
                     fontSize={11}
-                    tickFormatter={(value) => `${Math.round(value / 1000)}k`}
+                    tickFormatter={(value) => formatAxisAmount(Number(value))}
                   />
                   <Tooltip
                     contentStyle={{
@@ -289,7 +326,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 function getRanges(filter: ProfitFilter) {
   const now = new Date();
 
-  if (filter === "today" || filter === "session") {
+  if (filter === "today") {
     const current = { from: startOfDay(now), to: endOfDay(now) };
     const prevDate = subDays(now, 1);
     const previous = { from: startOfDay(prevDate), to: endOfDay(prevDate) };
@@ -297,38 +334,106 @@ function getRanges(filter: ProfitFilter) {
   }
 
   if (filter === "weekly") {
-    const current = { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) };
-    const prevAnchor = subDays(current.from, 1);
-    const previous = { from: startOfWeek(prevAnchor, { weekStartsOn: 1 }), to: endOfWeek(prevAnchor, { weekStartsOn: 1 }) };
+    const current = {
+      from: startOfWeek(subWeeks(now, 7), { weekStartsOn: 1 }),
+      to: endOfWeek(now, { weekStartsOn: 1 }),
+    };
+    const prevEnd = subDays(current.from, 1);
+    const previous = {
+      from: startOfWeek(subWeeks(prevEnd, 7), { weekStartsOn: 1 }),
+      to: endOfWeek(prevEnd, { weekStartsOn: 1 }),
+    };
     return { current, previous };
   }
 
-  const current = { from: startOfMonth(now), to: endOfMonth(now) };
-  const prevAnchor = subDays(current.from, 1);
-  const previous = { from: startOfMonth(prevAnchor), to: endOfMonth(prevAnchor) };
+  if (filter === "monthly") {
+    const current = { from: startOfMonth(now), to: endOfMonth(now) };
+    const prevAnchor = subDays(current.from, 1);
+    const previous = { from: startOfMonth(prevAnchor), to: endOfMonth(prevAnchor) };
+    return { current, previous };
+  }
+
+  const current = { from: startOfYear(now), to: endOfYear(now) };
+  const prevYear = subYears(now, 1);
+  const previous = { from: startOfYear(prevYear), to: endOfYear(prevYear) };
   return { current, previous };
 }
 
-function buildTrendSeries(netProfit: number, previousNet: number, revenue: number, expenses: number) {
-  const base = Math.max(revenue, netProfit, previousNet, expenses, 1);
-  const seed = Math.max(base, 1) / 8.5;
-  const values = [
-    previousNet * 0.66 + seed,
-    previousNet * 0.74 + seed * 1.1,
-    previousNet * 0.79 + seed * 0.9,
-    netProfit * 0.68 + seed * 1.2,
-    netProfit * 0.8 + seed,
-    netProfit * 0.86 + seed * 0.88,
-    revenue * 0.6 + seed * 0.9,
-    revenue * 0.67 + seed,
-    netProfit * 0.94 + seed * 0.72,
-    netProfit * 1.02 + seed * 0.63,
-  ];
-
-  return values.map((value, index) => ({
-    label: `P${index + 1}`,
-    value: Math.max(value, 0),
+function buildTrendSeries({
+  filter,
+  from,
+  invoices,
+  expenses,
+}: {
+  filter: ProfitFilter;
+  from: Date;
+  invoices: InvoiceTrendPoint[];
+  expenses: ExpenseEntry[];
+}) {
+  const invoicePoints = invoices.map((item) => ({
+    at: new Date(item.created_at).getTime(),
+    amount: Number(item.total_amount || 0),
   }));
+  const expensePoints = expenses.map((item) => ({
+    at: new Date(item.date).getTime(),
+    amount: Number(item.amount || 0),
+  }));
+
+  const getAmountForRange = (rangeFrom: Date, rangeTo: Date) => {
+    const fromTime = rangeFrom.getTime();
+    const toTime = rangeTo.getTime();
+    const income = invoicePoints.reduce((sum, point) => (point.at >= fromTime && point.at < toTime ? sum + point.amount : sum), 0);
+    const spend = expensePoints.reduce((sum, point) => (point.at >= fromTime && point.at < toTime ? sum + point.amount : sum), 0);
+    return income - spend;
+  };
+
+  if (filter === "today") {
+    const dayStart = startOfDay(from);
+    return Array.from({ length: 8 }).map((_, index) => {
+      const bucketFrom = addHours(dayStart, index * 3);
+      const bucketTo = addHours(dayStart, (index + 1) * 3);
+      return {
+        label: format(bucketFrom, "ha"),
+        value: getAmountForRange(bucketFrom, bucketTo),
+      };
+    });
+  }
+
+  if (filter === "weekly") {
+    const weekStart = startOfWeek(from, { weekStartsOn: 1 });
+    return Array.from({ length: 8 }).map((_, index) => {
+      const bucketFrom = addWeeks(weekStart, index);
+      const bucketTo = addWeeks(weekStart, index + 1);
+      return {
+        label: `W${getISOWeek(bucketFrom)}`,
+        value: getAmountForRange(bucketFrom, bucketTo),
+      };
+    });
+  }
+
+  if (filter === "yearly") {
+    const yearStart = startOfYear(from);
+    return Array.from({ length: 12 }).map((_, index) => {
+      const bucketFrom = addMonths(yearStart, index);
+      const bucketTo = addMonths(yearStart, index + 1);
+      return {
+        label: format(bucketFrom, "MMM"),
+        value: getAmountForRange(bucketFrom, bucketTo),
+      };
+    });
+  }
+
+  const monthStart = startOfMonth(from);
+  const nextMonthStart = addMonths(monthStart, 1);
+  const totalDays = Math.max(1, Math.round((nextMonthStart.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)));
+  return Array.from({ length: totalDays }).map((_, index) => {
+    const bucketFrom = addDays(monthStart, index);
+    const bucketTo = addDays(monthStart, index + 1);
+    return {
+      label: format(bucketFrom, "d"),
+      value: getAmountForRange(bucketFrom, bucketTo),
+    };
+  });
 }
 
 function sumExpensesForRange(expenses: Array<{ date: string; amount: number }>, from: Date, to: Date) {
@@ -341,4 +446,11 @@ function sumExpensesForRange(expenses: Array<{ date: string; amount: number }>, 
     }
     return sum;
   }, 0);
+}
+
+function formatAxisAmount(value: number) {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000) return `₱${(value / 1_000_000).toFixed(1)}M`;
+  if (absolute >= 1_000) return `₱${(value / 1_000).toFixed(1)}k`;
+  return `₱${Math.round(value)}`;
 }
