@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { CircleUserRound, Fingerprint, KeyRound, Menu, Moon, Sun, Wallet, X } from "lucide-react";
+import { CircleUserRound, Fingerprint, KeyRound, Loader2, Menu, Moon, Sun, Wallet, X } from "lucide-react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useTheme } from "@/components/settings/theme-provider";
 import { drawerMotion, pageTransition, tapFeedback } from "@/lib/motion";
@@ -35,6 +35,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     photo: "https://i.pravatar.cc/96?img=12",
   });
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartYRef = useRef(0);
+  const pullingRef = useRef(false);
+
+  const PULL_MAX = 94;
+  const PULL_THRESHOLD = 68;
 
   useEffect(() => {
     const role = window.localStorage.getItem("ls-user-role") || "OWNER";
@@ -47,6 +54,67 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  function supportsTouchPull() {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(pointer: coarse)").matches;
+  }
+
+  function pageAtTop() {
+    if (typeof window === "undefined") return false;
+    return window.scrollY <= 0;
+  }
+
+  function isScrollableContainer(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return false;
+    let node: HTMLElement | null = target;
+    while (node && node !== document.body) {
+      const style = window.getComputedStyle(node);
+      const canScroll = /(auto|scroll)/.test(style.overflowY);
+      if (canScroll && node.scrollHeight > node.clientHeight && node.scrollTop > 0) return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
+
+  function onTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    if (!supportsTouchPull() || isRefreshing) return;
+    if (!pageAtTop()) return;
+    if (isScrollableContainer(event.target)) return;
+    touchStartYRef.current = event.touches[0]?.clientY ?? 0;
+    pullingRef.current = true;
+  }
+
+  function onTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (!pullingRef.current || isRefreshing) return;
+    const currentY = event.touches[0]?.clientY ?? 0;
+    const delta = currentY - touchStartYRef.current;
+    if (delta <= 0) {
+      setPullDistance(0);
+      return;
+    }
+    if (!pageAtTop()) {
+      setPullDistance(0);
+      return;
+    }
+    event.preventDefault();
+    const damped = Math.min(PULL_MAX, delta * 0.46);
+    setPullDistance(damped);
+  }
+
+  function onTouchEnd() {
+    if (!pullingRef.current) return;
+    pullingRef.current = false;
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 260);
+      return;
+    }
+    setPullDistance(0);
+  }
 
   const pageMeta = useMemo(
     () => pageTitleMap.find((item) => item.match(pathname)) || pageTitleMap[pageTitleMap.length - 1],
@@ -125,6 +193,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </AnimatePresence>
 
         <div className="min-w-0">
+          <AnimatePresence>
+            {pullDistance > 0 || isRefreshing ? (
+              <motion.div
+                className="pointer-events-none fixed left-1/2 z-40 -translate-x-1/2 rounded-full border border-border/80 bg-panel-2/90 px-3 py-1.5 text-xs font-medium text-foreground shadow-card"
+                style={{ top: "calc(env(safe-area-inset-top, 0px) + 0.5rem)" }}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 size={13} className={cn(isRefreshing || pullDistance >= PULL_THRESHOLD ? "animate-spin" : "")} />
+                  {isRefreshing ? "Refreshing..." : pullDistance >= PULL_THRESHOLD ? "Release to refresh" : "Pull to refresh"}
+                </span>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
           <header
             className="sticky top-0 z-30 border-b border-border/80 bg-background/92 px-3 py-3 backdrop-blur-md sm:px-4 lg:px-6"
             style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}
@@ -167,7 +252,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             animate={pageTransition.animate}
             transition={pageTransition.transition}
             className="mx-auto min-h-[calc(100vh-64px)] max-w-6xl px-3 pb-28 pt-4 sm:px-4 lg:px-6"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 7rem)" }}
+            style={{
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 7rem)",
+              transform: `translateY(${pullDistance}px)`,
+              transition: isRefreshing || pullDistance === 0 ? "transform 180ms ease" : "none",
+            }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
           >
             {children}
           </motion.main>
