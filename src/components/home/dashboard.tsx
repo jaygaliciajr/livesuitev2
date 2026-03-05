@@ -13,17 +13,20 @@ import {
   Package,
   Rocket,
   Truck,
-  TrendingDown,
-  TrendingUp,
   UsersRound,
   Wallet,
 } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { endOfDay, endOfMonth, endOfWeek, startOfDay, startOfMonth, startOfWeek, subDays } from "date-fns";
+import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { KPIStat } from "@/components/ui/kpi-stat";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getDashboardMetrics } from "@/lib/data";
-import { cn, formatCount, formatCurrency } from "@/lib/utils";
+import { listContainer, listItem, tapFeedback } from "@/lib/motion";
+import { formatCount, formatCurrency } from "@/lib/utils";
 import { DashboardMetrics } from "@/types/domain";
 
 const quickLinks = [
@@ -98,144 +101,166 @@ export function HomeDashboard() {
   const previousNet = previousRevenue - previousExpenses;
   const growth = previousNet > 0 ? ((netProfit - previousNet) / previousNet) * 100 : 0;
 
-  const sparklinePoints = useMemo(() => buildSparkline(netProfit, previousNet, revenue), [netProfit, previousNet, revenue]);
-
-  const summaryCards = [
-    {
-      label: "Total Orders",
-      value: formatCount(metrics.totalPcs),
-      description: "Orders encoded today",
-      icon: Package,
-    },
-    {
-      label: "Total Revenue",
-      value: formatCurrency(metrics.totalInvoice),
-      description: "Gross sales captured",
-      icon: BadgeDollarSign,
-    },
-    {
-      label: "Outstanding Balance",
-      value: formatCurrency(metrics.unpaidAmount),
-      description: "Awaiting settlement",
-      icon: HandCoins,
-    },
-    {
-      label: "Active Customers",
-      value: formatCount(metrics.totalMiners),
-      description: "Unique buyers engaged",
-      icon: UsersRound,
-    },
-  ] as const;
+  const trendSeries = useMemo(() => buildTrendSeries(netProfit, previousNet, revenue, expenses), [netProfit, previousNet, revenue, expenses]);
 
   return (
     <div className="space-y-5 pb-2">
+      <PageHeader title="Dashboard" subtitle="Executive overview of live selling performance and cash flow." />
+
       {error ? <EmptyState title="Metrics unavailable" body={error} /> : null}
 
-      <Card className="premium-glow rounded-[30px] border-primary/35 bg-gradient-to-br from-primary/18 via-panel/85 to-accent/12 p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <Card variant="elevated" className="overflow-hidden rounded-[18px] border-primary/25">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-[1.15rem] font-semibold tracking-tight text-foreground">Profit Monitoring</h1>
-            <p className="text-xs text-muted">Owner financial control panel</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary/85">Profit Monitoring</p>
+            <h2 className="mt-1 text-2xl font-semibold text-foreground">Net {loading ? "..." : formatCurrency(netProfit)}</h2>
+            <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-muted">
+              <ArrowUpRight size={12} className={growth >= 0 ? "text-success" : "text-danger"} />
+              {loading ? "..." : `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`} vs previous period
+            </p>
           </div>
-          <div className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-panel/80 px-2 py-1 text-xs font-medium text-muted">
-            {growth >= 0 ? <TrendingUp size={13} className="text-emerald-400" /> : <TrendingDown size={13} className="text-rose-400" />}
-            {loading ? "..." : `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}%`}
+          <div className="w-full max-w-[360px]">
+            <SegmentedControl
+              value={profitFilter}
+              onChange={(value) => setProfitFilter(value as ProfitFilter)}
+              options={[
+                { label: "Today", value: "today" },
+                { label: "Session", value: "session" },
+                { label: "Weekly", value: "weekly" },
+                { label: "Monthly", value: "monthly" },
+              ]}
+            />
           </div>
         </div>
 
-        <SegmentedControl
-          value={profitFilter}
-          onChange={(value) => setProfitFilter(value as ProfitFilter)}
-          options={[
-            { label: "Today", value: "today" },
-            { label: "Session", value: "session" },
-            { label: "Weekly", value: "weekly" },
-            { label: "Monthly", value: "monthly" },
-          ]}
-        />
-
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <MetricPill label="Net Profit" value={loading ? "..." : formatCurrency(netProfit)} highlight />
-          <MetricPill label="Revenue" value={loading ? "..." : formatCurrency(revenue)} />
-          <MetricPill label="Expenses" value={loading ? "..." : formatCurrency(expenses)} />
-          <MetricPill label="Profit Margin" value={loading ? "..." : `${margin.toFixed(1)}%`} />
+        <div className="mb-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <MiniMetric label="Revenue" value={loading ? "..." : formatCurrency(revenue)} />
+          <MiniMetric label="Expenses" value={loading ? "..." : formatCurrency(expenses)} />
+          <MiniMetric label="Profit Margin" value={loading ? "..." : `${margin.toFixed(1)}%`} />
+          <MiniMetric label="Unpaid" value={loading ? "..." : formatCurrency(metrics.unpaidAmount)} />
         </div>
 
-        <div className="mt-3 rounded-2xl border border-border/75 bg-panel/72 p-2.5">
-          <div className="mb-2 flex items-center justify-between text-xs text-muted">
-            <span>Growth trend preview</span>
-            <span className="inline-flex items-center gap-1">
-              <ArrowUpRight size={12} /> last periods
-            </span>
-          </div>
-          <svg viewBox="0 0 280 78" className="h-[78px] w-full">
-            <defs>
-              <linearGradient id="sparkLine" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgba(84,153,255,0.9)" />
-                <stop offset="100%" stopColor="rgba(84,153,255,0.1)" />
-              </linearGradient>
-            </defs>
-            <path d={`${sparklinePoints} L 280 78 L 0 78 Z`} fill="url(#sparkLine)" opacity="0.6" />
-            <path d={sparklinePoints} stroke="rgba(111,182,255,0.95)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          </svg>
+        <div className="surface-card rounded-[14px] p-2 sm:p-3">
+          {loading ? (
+            <Skeleton className="h-52 w-full rounded-[12px]" />
+          ) : (
+            <div className="h-52 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendSeries} margin={{ top: 8, right: 8, left: -16, bottom: 2 }}>
+                  <defs>
+                    <linearGradient id="kpi-area" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.48} />
+                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.06} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" opacity={0.5} vertical={false} />
+                  <XAxis dataKey="label" stroke="var(--muted)" tickLine={false} axisLine={false} fontSize={11} />
+                  <YAxis
+                    stroke="var(--muted)"
+                    tickLine={false}
+                    axisLine={false}
+                    width={44}
+                    fontSize={11}
+                    tickFormatter={(value) => `${Math.round(value / 1000)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      background: "color-mix(in srgb, var(--surface) 92%, transparent)",
+                      color: "var(--fg)",
+                    }}
+                    formatter={(value: number | string | undefined) => formatCurrency(Number(value || 0))}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="var(--primary)"
+                    strokeWidth={2.4}
+                    fillOpacity={1}
+                    fill="url(#kpi-area)"
+                    activeDot={{ r: 3.5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </Card>
 
-      <section className="grid grid-cols-2 gap-3">
-        {summaryCards.map((metric, index) => (
-          <motion.article
-            key={metric.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.28, delay: index * 0.05 }}
-            className="glass-panel rounded-3xl border border-border/75 bg-panel/82 p-4 shadow-card"
-          >
-            <div className="flex items-start justify-between">
-              <p className="text-sm font-semibold text-muted">{metric.label}</p>
-              <span className="rounded-xl border border-border/70 bg-panel/65 p-2 text-muted">
-                <metric.icon size={15} />
-              </span>
-            </div>
-            <p className="mt-4 text-2xl font-semibold tracking-tight text-foreground">{loading ? "..." : metric.value}</p>
-            <p className="mt-2 text-xs text-muted">{metric.description}</p>
-          </motion.article>
-        ))}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KPIStat
+          title="Total Pcs"
+          value={metrics.totalPcs}
+          formatter={(value) => formatCount(Math.round(value))}
+          loading={loading}
+          description="Sold item quantity"
+          icon={<Package size={15} />}
+        />
+        <KPIStat
+          title="Total Invoice"
+          value={metrics.totalInvoice}
+          formatter={(value) => formatCurrency(value)}
+          loading={loading}
+          description="Invoiced sales value"
+          icon={<BadgeDollarSign size={15} />}
+        />
+        <KPIStat
+          title="Unpaid Amount"
+          value={metrics.unpaidAmount}
+          formatter={(value) => formatCurrency(value)}
+          loading={loading}
+          description="Pending collections due"
+          icon={<HandCoins size={15} />}
+        />
+        <KPIStat
+          title="Total Miners"
+          value={metrics.totalMiners}
+          formatter={(value) => formatCount(Math.round(value))}
+          loading={loading}
+          description="Unique active customers"
+          icon={<UsersRound size={15} />}
+        />
       </section>
 
-      <Card className="glass-panel rounded-3xl border-border/75 bg-panel/82 p-3.5 shadow-card">
-        <div className="mb-3 flex items-center justify-between px-1">
-          <h2 className="text-base font-semibold text-foreground">Quick Access</h2>
+      <Card className="rounded-[18px]">
+        <div className="mb-3 flex items-start justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Quick Access</h3>
+            <p className="text-xs text-muted">Common modules for encoding and finance operations.</p>
+          </div>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
             <ChartNoAxesColumnIncreasing size={13} /> Shortcuts
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <motion.div variants={listContainer} initial="hidden" animate="show" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="group flex h-[90px] flex-col items-center justify-center rounded-2xl border border-border/75 bg-panel/66 text-center transition hover:-translate-y-0.5 hover:border-primary/35"
-              >
-                <span className="mb-2 rounded-xl bg-gradient-to-br from-primary/25 to-accent/15 p-2 text-primary/90">
-                  <Icon size={18} />
-                </span>
-                <span className="text-[12px] font-medium leading-tight text-foreground">{link.label}</span>
-              </Link>
+              <motion.div key={link.href} variants={listItem}>
+                <Link
+                  href={link.href}
+                  className="focus-ring group flex h-24 flex-col items-center justify-center rounded-[14px] border border-border/80 bg-panel-2/65 text-center transition hover:-translate-y-0.5 hover:border-border-strong"
+                >
+                  <motion.span {...tapFeedback} className="mb-2 rounded-xl border border-border/70 bg-panel-3/45 p-2 text-primary">
+                    <Icon size={18} />
+                  </motion.span>
+                  <span className="text-xs font-medium leading-tight text-foreground">{link.label}</span>
+                </Link>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       </Card>
     </div>
   );
 }
 
-function MetricPill({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className={cn("rounded-2xl border border-border/70 bg-panel/72 p-2.5", highlight ? "premium-glow" : "")}> 
+    <div className="rounded-[12px] border border-border/75 bg-panel-2/70 p-2.5">
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</p>
-      <p className={cn("mt-1 text-sm font-semibold", highlight ? "text-foreground" : "text-foreground/90")}>{value}</p>
+      <p className="mt-1 text-sm font-semibold text-foreground">{value}</p>
     </div>
   );
 }
@@ -263,33 +288,26 @@ function getRanges(filter: ProfitFilter) {
   return { current, previous };
 }
 
-function buildSparkline(netProfit: number, previousNet: number, revenue: number) {
-  const base = Math.max(revenue, netProfit, previousNet, 1);
-  const seed = Math.max(base, 1) / 9;
+function buildTrendSeries(netProfit: number, previousNet: number, revenue: number, expenses: number) {
+  const base = Math.max(revenue, netProfit, previousNet, expenses, 1);
+  const seed = Math.max(base, 1) / 8.5;
   const values = [
-    previousNet * 0.68 + seed,
-    previousNet * 0.77 + seed * 1.15,
-    previousNet * 0.74 + seed * 0.95,
-    netProfit * 0.72 + seed * 1.2,
-    netProfit * 0.84 + seed,
-    netProfit * 0.8 + seed * 1.25,
-    revenue * 0.65 + seed,
-    revenue * 0.7 + seed * 1.1,
-    revenue * 0.75 + seed,
-    netProfit * 0.93 + seed * 0.9,
+    previousNet * 0.66 + seed,
+    previousNet * 0.74 + seed * 1.1,
+    previousNet * 0.79 + seed * 0.9,
+    netProfit * 0.68 + seed * 1.2,
+    netProfit * 0.8 + seed,
+    netProfit * 0.86 + seed * 0.88,
+    revenue * 0.6 + seed * 0.9,
+    revenue * 0.67 + seed,
+    netProfit * 0.94 + seed * 0.72,
+    netProfit * 1.02 + seed * 0.63,
   ];
 
-  const maxValue = Math.max(...values, 1);
-  const minValue = Math.min(...values, 0);
-  const spread = maxValue - minValue || 1;
-
-  const points = values.map((value, index) => {
-    const x = (index / (values.length - 1)) * 280;
-    const y = 72 - ((value - minValue) / spread) * 62;
-    return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-  });
-
-  return points.join(" ");
+  return values.map((value, index) => ({
+    label: `P${index + 1}`,
+    value: Math.max(value, 0),
+  }));
 }
 
 function sumExpensesForRange(expenses: Array<{ date: string; amount: number }>, from: Date, to: Date) {

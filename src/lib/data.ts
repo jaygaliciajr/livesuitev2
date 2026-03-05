@@ -504,6 +504,78 @@ export async function listLiveSessions() {
   return data ?? [];
 }
 
+export async function listLiveSessionsPaginated(page = 1, pageSize = 10) {
+  guardSupabase();
+  const from = Math.max(0, (page - 1) * pageSize);
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await supabase
+    .from("live_sessions")
+    .select("id, supplier_id, started_at, ended_at, status, created_at, suppliers(name)", { count: "exact" })
+    .order("started_at", { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+
+  const sessions = (data ?? []) as Array<LiveSession & { suppliers?: { name?: string | null } }>;
+  const sessionIds = sessions.map((session) => session.id);
+  if (sessionIds.length === 0) {
+    return { items: [], total: count ?? 0 };
+  }
+
+  const { data: linesRaw, error: linesError } = await supabase
+    .from("session_order_lines")
+    .select("qty, line_total, session_orders!inner(session_id, customer_id)")
+    .in("session_orders.session_id", sessionIds);
+  if (linesError) throw linesError;
+
+  const sessionMap = new Map<
+    string,
+    {
+      totalAmount: number;
+      totalPcs: number;
+      customers: Set<string>;
+      lines: number;
+    }
+  >();
+
+  (linesRaw ?? []).forEach((row: any) => {
+    const sessionId = row.session_orders?.session_id as string | undefined;
+    if (!sessionId) return;
+
+    const prev = sessionMap.get(sessionId) ?? {
+      totalAmount: 0,
+      totalPcs: 0,
+      customers: new Set<string>(),
+      lines: 0,
+    };
+
+    prev.totalAmount += Number(row.line_total || 0);
+    prev.totalPcs += Number(row.qty || 0);
+    prev.lines += 1;
+    if (row.session_orders?.customer_id) prev.customers.add(row.session_orders.customer_id);
+
+    sessionMap.set(sessionId, prev);
+  });
+
+  const items = sessions.map((session) => {
+    const totals = sessionMap.get(session.id);
+    return {
+      ...session,
+      suppliers: session.suppliers,
+      total_amount: totals?.totalAmount ?? 0,
+      total_pcs: totals?.totalPcs ?? 0,
+      total_customers: totals?.customers.size ?? 0,
+      total_lines: totals?.lines ?? 0,
+    };
+  });
+
+  return {
+    items,
+    total: count ?? sessions.length,
+  };
+}
+
 export async function exportTableCsv(table: "suppliers" | "products" | "customers" | "invoices") {
   guardSupabase();
   const { data, error } = await supabase.from(table).select("*").order("created_at", { ascending: false });

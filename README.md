@@ -28,6 +28,30 @@ Mobile-first responsive app for fast live selling encoding (encoder workflow): s
    npm run dev
    ```
 
+## Android (APK) via Capacitor
+Use this when you want to wrap the deployed web app as an Android app.
+
+1. Set your deployed URL in `.env.local`:
+   ```bash
+   CAPACITOR_SERVER_URL=https://your-deployed-site.example.com
+   ```
+2. Generate/update Android project:
+   ```bash
+   npm run cap:add:android   # first time only
+   npm run cap:sync
+   ```
+3. Open Android Studio project:
+   ```bash
+   npm run cap:open:android
+   ```
+4. In Android Studio:
+   - `Build > Build Bundle(s) / APK(s) > Build APK(s)` for debug APK
+   - `Build > Generate Signed Bundle / APK` for release build
+
+Notes:
+- If `CAPACITOR_SERVER_URL` starts with `http://`, cleartext is automatically enabled in Capacitor config.
+- For production APK, always use `https://` deployed URL.
+
 ## Main Routes
 - `/` Home dashboard (date filters + KPI cards + quick access)
 - `/live` Live speed mode (supplier -> active product -> add miner -> order list -> end live)
