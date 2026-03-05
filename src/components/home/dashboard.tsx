@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -57,6 +57,8 @@ export function HomeDashboard() {
   const [expensePrevious, setExpensePrevious] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const chartHostRef = useRef<HTMLDivElement | null>(null);
+  const [canRenderChart, setCanRenderChart] = useState(false);
 
   const ranges = useMemo(() => getRanges(profitFilter), [profitFilter]);
 
@@ -90,6 +92,22 @@ export function HomeDashboard() {
       mounted = false;
     };
   }, [ranges]);
+
+  useEffect(() => {
+    if (!chartHostRef.current) return;
+    let mounted = true;
+    const node = chartHostRef.current;
+    const observer = new ResizeObserver((entries) => {
+      if (!mounted) return;
+      const rect = entries[0]?.contentRect;
+      setCanRenderChart(Boolean(rect && rect.width > 0 && rect.height > 0));
+    });
+    observer.observe(node);
+    return () => {
+      mounted = false;
+      observer.disconnect();
+    };
+  }, []);
 
   const revenue = metrics.totalInvoice;
   const expenses = expenseCurrent;
@@ -140,11 +158,11 @@ export function HomeDashboard() {
           <MiniMetric label="Unpaid" value={loading ? "..." : formatCurrency(metrics.unpaidAmount)} />
         </div>
 
-        <div className="surface-card rounded-[14px] p-2 sm:p-3">
-          {loading ? (
+        <div ref={chartHostRef} className="surface-card rounded-[14px] p-2 sm:p-3">
+          {loading || !canRenderChart ? (
             <Skeleton className="h-52 w-full rounded-[12px]" />
           ) : (
-            <div className="h-52 w-full">
+            <div className="h-52 min-h-[208px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendSeries} margin={{ top: 8, right: 8, left: -16, bottom: 2 }}>
                   <defs>
@@ -233,19 +251,22 @@ export function HomeDashboard() {
             <ChartNoAxesColumnIncreasing size={13} /> Shortcuts
           </span>
         </div>
-        <motion.div variants={listContainer} initial="hidden" animate="show" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <motion.div variants={listContainer} initial="hidden" animate="show" className="grid grid-cols-4 gap-2">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (
               <motion.div key={link.href} variants={listItem}>
                 <Link
                   href={link.href}
-                  className="focus-ring group flex h-24 flex-col items-center justify-center rounded-[14px] border border-border/80 bg-panel-2/65 text-center transition hover:-translate-y-0.5 hover:border-border-strong"
+                  className="focus-ring group flex h-20 flex-col items-center justify-center rounded-[12px] border border-border/80 bg-panel-2/65 px-1 text-center transition hover:-translate-y-0.5 hover:border-border-strong sm:h-24 sm:rounded-[14px]"
                 >
-                  <motion.span {...tapFeedback} className="mb-2 rounded-xl border border-border/70 bg-panel-3/45 p-2 text-primary">
-                    <Icon size={18} />
+                  <motion.span
+                    {...tapFeedback}
+                    className="mb-1.5 rounded-lg border border-border/70 bg-panel-3/45 p-1.5 text-primary sm:mb-2 sm:rounded-xl sm:p-2"
+                  >
+                    <Icon size={16} className="sm:h-[18px] sm:w-[18px]" />
                   </motion.span>
-                  <span className="text-xs font-medium leading-tight text-foreground">{link.label}</span>
+                  <span className="text-[11px] font-medium leading-tight text-foreground sm:text-xs">{link.label}</span>
                 </Link>
               </motion.div>
             );
