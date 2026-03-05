@@ -38,7 +38,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartYRef = useRef(0);
-  const pullingRef = useRef(false);
+  const pullDistanceRef = useRef(0);
+  const isRefreshingRef = useRef(false);
+  const canPullRef = useRef(false);
 
   const PULL_MAX = 94;
   const PULL_THRESHOLD = 68;
@@ -55,66 +57,81 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setMenuOpen(false);
   }, [pathname]);
 
-  function supportsTouchPull() {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(pointer: coarse)").matches;
-  }
-
-  function pageAtTop() {
-    if (typeof window === "undefined") return false;
-    return window.scrollY <= 0;
-  }
-
   function isScrollableContainer(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return false;
     let node: HTMLElement | null = target;
     while (node && node !== document.body) {
       const style = window.getComputedStyle(node);
       const canScroll = /(auto|scroll)/.test(style.overflowY);
-      if (canScroll && node.scrollHeight > node.clientHeight && node.scrollTop > 0) return true;
+      if (canScroll && node.scrollHeight > node.clientHeight) return true;
       node = node.parentElement;
     }
     return false;
   }
 
-  function onTouchStart(event: React.TouchEvent<HTMLDivElement>) {
-    if (!supportsTouchPull() || isRefreshing) return;
-    if (!pageAtTop()) return;
-    if (isScrollableContainer(event.target)) return;
-    touchStartYRef.current = event.touches[0]?.clientY ?? 0;
-    pullingRef.current = true;
-  }
+  useEffect(() => {
+    pullDistanceRef.current = pullDistance;
+  }, [pullDistance]);
 
-  function onTouchMove(event: React.TouchEvent<HTMLDivElement>) {
-    if (!pullingRef.current || isRefreshing) return;
-    const currentY = event.touches[0]?.clientY ?? 0;
-    const delta = currentY - touchStartYRef.current;
-    if (delta <= 0) {
-      setPullDistance(0);
-      return;
-    }
-    if (!pageAtTop()) {
-      setPullDistance(0);
-      return;
-    }
-    event.preventDefault();
-    const damped = Math.min(PULL_MAX, delta * 0.46);
-    setPullDistance(damped);
-  }
+  useEffect(() => {
+    isRefreshingRef.current = isRefreshing;
+  }, [isRefreshing]);
 
-  function onTouchEnd() {
-    if (!pullingRef.current) return;
-    pullingRef.current = false;
-    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
-      setIsRefreshing(true);
-      setPullDistance(PULL_THRESHOLD);
-      window.setTimeout(() => {
-        window.location.reload();
-      }, 260);
-      return;
-    }
-    setPullDistance(0);
-  }
+  useEffect(() => {
+    const supportsTouchPull = window.matchMedia("(pointer: coarse)").matches;
+    if (!supportsTouchPull) return;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (isRefreshingRef.current) return;
+      if (window.scrollY > 0) return;
+      if (isScrollableContainer(event.target)) return;
+      touchStartYRef.current = event.touches[0]?.clientY ?? 0;
+      canPullRef.current = true;
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!canPullRef.current || isRefreshingRef.current) return;
+      if (window.scrollY > 0) {
+        setPullDistance(0);
+        return;
+      }
+      const currentY = event.touches[0]?.clientY ?? 0;
+      const delta = currentY - touchStartYRef.current;
+      if (delta <= 0) {
+        setPullDistance(0);
+        return;
+      }
+      event.preventDefault();
+      const damped = Math.min(PULL_MAX, delta * 0.48);
+      setPullDistance(damped);
+    };
+
+    const onTouchEnd = () => {
+      if (!canPullRef.current) return;
+      canPullRef.current = false;
+      if (pullDistanceRef.current >= PULL_THRESHOLD && !isRefreshingRef.current) {
+        setIsRefreshing(true);
+        setPullDistance(PULL_THRESHOLD);
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 260);
+        return;
+      }
+      setPullDistance(0);
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    window.addEventListener("touchcancel", onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
 
   const pageMeta = useMemo(
     () => pageTitleMap.find((item) => item.match(pathname)) || pageTitleMap[pageTitleMap.length - 1],
@@ -257,10 +274,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               transform: `translateY(${pullDistance}px)`,
               transition: isRefreshing || pullDistance === 0 ? "transform 180ms ease" : "none",
             }}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-            onTouchCancel={onTouchEnd}
           >
             {children}
           </motion.main>
